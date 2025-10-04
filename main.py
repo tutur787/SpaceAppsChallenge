@@ -583,6 +583,16 @@ with exp_tab:
                 )
 
     # Map visualization with concentric circles
+    st.session_state["impact_scenario"] = {
+        "lat": lat, "lon": lon,
+        "diameter_m": diameter_m, "density": density, "velocity": velocity,
+        "angle": angle, "strength_mpa": strength_mpa,
+        "E_mt": E_mt, "E_ground_mt": E_ground_mt,
+        "burst_alt_km": burst_alt_km, "crater_km": crater_km,
+        "r_severe": r_severe, "r_mod": r_mod, "r_light": r_light, "Mw": Mw,
+        "exposure": exposure, "casualties": exposure.get("casualties", 0.0),
+    }
+
     st.markdown("### Map")
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
@@ -689,11 +699,35 @@ with exp_tab:
                 st.metric("What-if energy (preview)", f"{E_mt_preview:,.2f} Mt TNT")
                 st.caption("Preview assumes current density/material selection.")
 
-
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
-    st.write("Toy model: apply a small velocity change (Δv) some days before arrival and see how the nominal impact point shifts.")
+    st.write("See how a small push far in advance could change an asteroid’s impact point and effects on Earth.")
 
+    # --- Load stored parameters from Explore tab ---
+    if "impact_scenario" not in st.session_state:
+        st.warning("⚠️ Please first create an asteroid scenario in the **Explore** tab.")
+        st.stop()
+
+    scenario = st.session_state["impact_scenario"]
+
+    base_lat = scenario["lat"]
+    base_lon = scenario["lon"]
+    diameter_m = scenario["diameter_m"]
+    density = scenario["density"]
+    velocity = scenario["velocity"]
+    angle = scenario["angle"]
+    strength_mpa = scenario["strength_mpa"]
+    E_mt_base = scenario["E_mt"]
+    E_ground_mt_base = scenario["E_ground_mt"]
+    burst_alt_km_base = scenario["burst_alt_km"]
+    crater_km_base = scenario["crater_km"]
+    r12_base = scenario["r_severe"]
+    r4_base = scenario["r_mod"]
+    r1_base = scenario["r_light"]
+    Mw_base = scenario["Mw"]
+    casualties = scenario["casualties"]
+
+    # --- Deflection controls ---
     c1, c2, c3 = st.columns(3)
     with c1:
         delta_v_mm_s = st.slider("Δv (mm/s)", 0.0, 5.0, 0.5, step=0.1)
@@ -702,62 +736,115 @@ with defend_tab:
     with c3:
         inbound_bearing = st.slider("Inbound bearing (°)", 0, 359, 90)
 
-    # Baseline from Explore tab (share state)
-    base_lat, base_lon = lat, lon
+    # --- Compute new impact point ---
     new_lat, new_lon, shift_km = apply_deflection(base_lat, base_lon, delta_v_mm_s, lead_days, inbound_bearing)
 
-    cols = st.columns(3)
-    cols[0].metric("Shift on ground (km)", f"{shift_km:.1f}")
-    cols[1].metric("Old impact", f"{base_lat:.3f}, {base_lon:.3f}")
-    cols[2].metric("New impact", f"{new_lat:.3f}, {new_lon:.3f}")
+    st.markdown(f"**Ground shift:** ~{shift_km:.1f} km (green = new impact, red = old impact)")
 
-    view_state = pdk.ViewState(latitude=base_lat, longitude=base_lon, zoom=5, bearing=0, pitch=30)
+    # --- Recompute outcome at new site (same asteroid physics) ---
+    burst_alt_km = estimate_burst_altitude_km(velocity, strength_mpa, diameter_m, angle)
+    burst_alt_km = max(0.0, burst_alt_km - 6.0)
+    ground_fraction = ground_energy_fraction(burst_alt_km)
 
-    path_df = pd.DataFrame({
-        "lat": [base_lat, new_lat],
-        "lon": [base_lon, new_lon],
+    m = asteroid_mass_kg(diameter_m, density)
+    E_j = kinetic_energy_joules(m, velocity)
+    E_mt = tnt_megatons(E_j)
+    E_ground_mt = E_mt * ground_fraction
+    crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
+    crater_km = crater_m / 1000.0
+
+    r12 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 12.0)
+    r4 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 4.0)
+    r1 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 1.0)
+    Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
+
+    exposure = estimate_population_impacts(r12, r4, r1, ring_densities=current_ring_densities)
+    new_casualties = exposure.get("casualties", 0.0)
+    casualty_diff = new_casualties - casualties
+
+    # --- Comparison Table ---
+    comp = pd.DataFrame({
+        "Parameter": [
+            "Impact latitude", "Impact longitude",
+            "Breakup altitude (km)",
+            "Kinetic energy (Mt TNT)", "Ground-coupled energy (Mt TNT)",
+            "Crater diameter (km)",
+            "Severe radius (12 psi, km)", "Moderate radius (4 psi, km)", "Light radius (1 psi, km)",
+            "Seismic magnitude (Mw)",
+            "Estimated casualties",
+        ],
+        "Before (original)": [
+            f"{base_lat:.3f}", f"{base_lon:.3f}",
+            f"{burst_alt_km_base:.1f}",
+            f"{E_mt_base:.2f}", f"{E_ground_mt_base:.2f}",
+            f"{crater_km_base:.2f}" if crater_km_base > 0 else "Airburst",
+            f"{r12_base:.2f}", f"{r4_base:.2f}", f"{r1_base:.2f}",
+            f"{Mw_base:.1f}" if Mw_base else "n/a",
+            f"{casualties:.1f}" if casualties else "n/a",
+        ],
+        "After (deflected)": [
+            f"{new_lat:.3f}", f"{new_lon:.3f}",
+            f"{burst_alt_km:.1f}",
+            f"{E_mt:.2f}", f"{E_ground_mt:.2f}",
+            f"{crater_km:.2f}" if crater_km > 0 else "Airburst",
+            f"{r12:.2f}", f"{r4:.2f}", f"{r1:.2f}",
+            f"{Mw:.1f}" if Mw else "n/a",
+            f"{new_casualties:.1f}" if new_casualties else "n/a",
+        ]
     })
+    st.markdown("### 🌍 Before vs After Deflection")
+    st.dataframe(comp, use_container_width=True)
 
-    overlays = [
+    # --- Map visualization (original + deflected impact) ---
+    view_state = pdk.ViewState(latitude=base_lat, longitude=base_lon, zoom=5, pitch=30)
+
+    def circle_layer(lat, lon, radius_km, color, name):
+        return pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            get_position="[lon, lat]",
+            get_radius=radius_km * 1000,
+            get_fill_color=color,
+            stroked=False,
+            pickable=False,
+            filled=True,
+            opacity=0.25,
+            id=name,
+        )
+
+    layers = [
+        # Original (red)
+        circle_layer(base_lat, base_lon, r1_base, [255, 165, 0, 80], "light_before"),
+        circle_layer(base_lat, base_lon, r4_base, [255, 0, 0, 100], "mod_before"),
+        circle_layer(base_lat, base_lon, r12_base, [139, 0, 0, 150], "sev_before"),
+        # Deflected (green)
+        circle_layer(new_lat, new_lon, r1, [0, 255, 0, 60], "light_after"),
+        circle_layer(new_lat, new_lon, r4, [0, 200, 100, 80], "mod_after"),
+        circle_layer(new_lat, new_lon, r12, [0, 100, 0, 120], "sev_after"),
+        # Line connecting them
         pdk.Layer(
             "LineLayer",
-            data=pd.DataFrame({"source_lon": [base_lon], "source_lat": [base_lat], "target_lon": [new_lon], "target_lat": [new_lat]}),
+            data=pd.DataFrame({"source_lon": [base_lon], "source_lat": [base_lat],
+                               "target_lon": [new_lon], "target_lat": [new_lat]}),
             get_source_position="[source_lon, source_lat]",
             get_target_position="[target_lon, target_lat]",
             get_width=3,
             get_color=[0, 200, 255, 200],
         ),
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [base_lat], "lon": [base_lon]}),
-            get_position="[lon, lat]",
-            get_radius=7000,
-            get_fill_color=[255, 0, 0, 200],
-        ),
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [new_lat], "lon": [new_lon]}),
-            get_position="[lon, lat]",
-            get_radius=7000,
-            get_fill_color=[0, 255, 0, 200],
-        ),
     ]
 
     if MAPBOX_TOKEN:
-        deck = pdk.Deck(map_style="mapbox://styles/mapbox/dark-v11", initial_view_state=view_state, layers=overlays)
+        deck = pdk.Deck(map_style="mapbox://styles/mapbox/dark-v11", initial_view_state=view_state, layers=layers)
     else:
         basemap = pdk.Layer(
             "TileLayer",
             data="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
             min_zoom=0, max_zoom=19, tile_size=256,
         )
-        deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *overlays], map_style=None)
+        deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *layers])
 
     st.pydeck_chart(deck)
-
-    st.caption(
-        "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point."
-    )
+    st.caption("Red = original impact | Green = deflected impact. Adjust Δv and lead time to see how even small pushes can change where — and how severely — an asteroid hits Earth.")
 
 with learn_tab:
     st.subheader("Glossary & Teaching Aids")
