@@ -104,18 +104,35 @@ def tnt_megatons(E_j: float) -> float:
     return E_j / TNT_J / 1e6
 
 
-def estimate_burst_altitude_km(velocity_km_s: float, strength_mpa: float) -> float:
-    """Invert the PAIR breakup criterion (Mathias et al. 2017 Eq. 2) with an exponential atmosphere."""
+def estimate_burst_altitude_km(
+    velocity_km_s: float,
+    strength_mpa: float,
+    diameter_m: float | None = None,
+    angle_deg: float | None = None,   # NEW
+) -> float:
+    """Strength breakup altitude with simple size and angle corrections."""
     if velocity_km_s <= 0 or strength_mpa <= 0:
         return 0.0
-    velocity_m_s = velocity_km_s * 1000.0
+
+    v = velocity_km_s * 1000.0
     strength_pa = strength_mpa * 1e6
-    rho_break = strength_pa / max(velocity_m_s ** 2, 1.0)
-    if rho_break >= SEA_LEVEL_DENSITY:
-        return 0.0  # survives to ground before meeting breakup criterion
-    rho_break = max(rho_break, 1e-9)
-    altitude = -SCALE_HEIGHT_KM * math.log(rho_break / SEA_LEVEL_DENSITY)
-    return float(max(0.0, min(altitude, 80.0)))
+
+    # Base (strength ~ dynamic pressure) altitude:
+    rho_break = 2.0 * strength_pa / max(v**2, 1.0)           # q = ½ρv² = strength → ρ_break
+    altitude = 0.0 if rho_break >= SEA_LEVEL_DENSITY else -SCALE_HEIGHT_KM * math.log(rho_break / SEA_LEVEL_DENSITY)
+
+    # Size correction: larger bodies penetrate deeper (down-shift altitude)
+    if diameter_m is not None and diameter_m > 0:
+        altitude -= 6.0 * math.log10(max(diameter_m, 10.0) / 50.0)
+
+    # ANGLE correction (educational): shallower entries break higher
+    if angle_deg is not None:
+        # angle is 10–90° from horizontal in your UI
+        s = math.sin(math.radians(max(5.0, min(angle_deg, 90.0))))
+        ANGLE_SCALE_KM = 10.0
+        altitude += ANGLE_SCALE_KM * (1.0 - s)    # +~8–9 km @ 20°, ~0 km @ 90°
+
+    return float(max(0.0, min(altitude, 60.0)))
 
 
 def ground_energy_fraction(burst_altitude_km: float) -> float:
@@ -125,69 +142,81 @@ def ground_energy_fraction(burst_altitude_km: float) -> float:
     # Hackathon-friendly smoothing: keep a gradual decay so high-altitude bursts still
     # couple a tiny amount of energy instead of instantly dropping to zero at 25 km.
     # Logistic curve mimics the PAIR trend without requiring the full atmospheric model.
-    scale_height = 2.8  # steeper value = faster drop-off with altitude
-    midpoint = 18.0  # around this altitude half the energy reaches the ground
+    scale_height = 4.0  # steeper value = faster drop-off with altitude
+    midpoint = 22.0  # around this altitude half the energy reaches the ground
     fraction = 1.0 / (1.0 + math.exp((burst_altitude_km - midpoint) / scale_height))
     return float(max(0.0, min(1.0, fraction)))
 
+K1 = 1.3
+MU = 0.55     # velocity exponent via pi-scaling
+NU = 0.4      # density exponent
+GAMMA = 0.17  # gravity exponent
 
-def transient_crater_diameter_m(
-    diameter_m: float,
-    velocity_km_s: float,
-    density_kg_m3: float,
-    angle_deg: float,
-    target_density_kg_m3: float = RHO_TARGET,
-    gravity: float = G,
-) -> float:
+def transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg,
+                                target_density_kg_m3=RHO_TARGET, gravity=G):
     if diameter_m <= 0 or velocity_km_s <= 0:
         return 0.0
     v = velocity_km_s * 1000.0
-    angle_rad = math.radians(max(5.0, min(angle_deg, 90.0)))
-    angle_factor = math.sin(angle_rad) ** (1 / 3)
-    gravity_term = (gravity * diameter_m / (v ** 2)) ** -0.217
-    density_term = (density_kg_m3 / target_density_kg_m3) ** 0.333
-    return 1.161 * gravity_term * density_term * (diameter_m ** 0.783) * angle_factor
+    a = max(5.0, min(angle_deg, 90.0))
+    angle_factor = math.sin(math.radians(a)) ** (1/3)
 
+    # Impact energy proxy using pi-scaling (gravity regime)
+    # D_t ∝ K1 * ( (ρ_i/ρ_t)^(ν) ) * d^(1-μ) * (v^μ) * (g^(-γ)) * angle_factor
+    rho_ratio = (density_kg_m3 / target_density_kg_m3) ** NU
+    D_t = K1 * rho_ratio * (diameter_m ** (1 - MU)) * (v ** MU) * (gravity ** (-GAMMA)) * angle_factor
+    return float(max(D_t, 0.0))
 
-def final_crater_diameter_m(
-    diameter_m: float,
-    velocity_km_s: float,
-    density_kg_m3: float,
-    angle_deg: float,
-    burst_altitude_km: float,
-) -> float:
-    energy_fraction = ground_energy_fraction(burst_altitude_km)
-    # Treat very low ground coupling as an airburst.
-    if energy_fraction <= 0 or energy_fraction < 0.02:
+def final_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg, burst_altitude_km):
+    # If the body disrupts above ~1 km → no excavation crater (airburst)
+    if burst_altitude_km > 1.0:
         return 0.0
-    transient = transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg)
-    if transient <= 0:
-        return 0.0
-    transient *= energy_fraction ** (1 / 3)
-    if transient < 3200:
-        final_crater = 1.25 * transient
-    else:
-        final_crater = 1.17 * (transient ** 1.13) / (G ** 0.13)
-    return float(max(0.0, final_crater))
 
+    # Otherwise it reaches the ground; compute transient crater and the final size
+    D_t = transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg)
+    if D_t <= 0:
+        return 0.0
+    # A simple transient→final factor for simple craters
+    return float(max(1.25 * D_t, 0.0))
+
+# very small lookup: overpressure psi -> scaled distance Z (m/kg^(1/3))
+# Values are approximate, education-friendly (Glasstone/Dolan-like).
+OP_TO_Z = {
+    1.0:  180.0,
+    4.0:   75.0,
+    12.0:  40.0,
+}
 
 def blast_overpressure_radius_km(E_mt: float, burst_altitude_km: float, overpressure_psi: float = 4.0) -> float:
     if E_mt <= 0:
         return 0.0
-    E13 = max(E_mt, 1e-6) ** (1 / 3)
-    h = max(0.0, burst_altitude_km)
-    base_radius = 2.09 * h - 0.449 * h * h / E13 + 5.08 * E13
-    base_radius = max(0.0, base_radius)
-    if overpressure_psi == 4.0:
-        return base_radius
-    scale = (4.0 / max(overpressure_psi, 1e-3)) ** (1 / 3)
-    return base_radius * scale
 
+    W_ton = E_mt * 1e6  # convert megatons → tons
+    W13 = max(W_ton, 1.0) ** (1 / 3)
 
-def seismic_moment_magnitude(E_joules: float, coupling: float = DEFAULT_SEISMIC_COUPLING) -> Optional[float]:
+    if overpressure_psi in OP_TO_Z:
+        Z = OP_TO_Z[overpressure_psi]
+    else:
+        keys = sorted(OP_TO_Z.keys())
+        lo = max(k for k in keys if k <= overpressure_psi)
+        hi = min(k for k in keys if k >= overpressure_psi)
+        if lo == hi:
+            Z = OP_TO_Z[lo]
+        else:
+            t = (math.log(overpressure_psi) - math.log(lo)) / (math.log(hi) - math.log(lo))
+            Z = OP_TO_Z[lo] * (1 - t) + OP_TO_Z[hi] * t
+
+    R0_km = (Z * W13) / 1000.0
+
+    H = max(burst_altitude_km, 0.0)
+    H_scale = 18.0  # km; tuned so 25 km bursts shrink ground radius ~50%
+    attenuation = 1.0 / (1.0 + (H / H_scale) ** 2)
+    return R0_km * attenuation
+
+def seismic_moment_magnitude(E_joules: float, coupling: float = DEFAULT_SEISMIC_COUPLING,
+                             ground_fraction: float = 1.0) -> Optional[float]:
     if E_joules <= 0 or coupling <= 0:
         return None
-    seismic_energy = E_joules * coupling
+    seismic_energy = E_joules * coupling * max(0.0, min(1.0, ground_fraction))
     if seismic_energy <= 0:
         return None
     return (2.0 / 3.0) * (math.log10(seismic_energy) - 4.8)
@@ -271,14 +300,16 @@ def run_pair_simulation(
         mass = asteroid_mass_kg(d, rho)
         E_j = kinetic_energy_joules(mass, v)
         E_mt = tnt_megatons(E_j)
-        burst = estimate_burst_altitude_km(v, s)
+        burst = estimate_burst_altitude_km(v, s, d, theta)
+        burst = max(0.0, burst - 5.0)
         ground_frac = ground_energy_fraction(burst)
         crater = final_crater_diameter_m(d, v, rho, theta, burst) / 1000.0
-        r4 = blast_overpressure_radius_km(E_mt, burst, overpressure_psi=4.0)
-        r12 = blast_overpressure_radius_km(E_mt, burst, overpressure_psi=12.0)
-        r1 = blast_overpressure_radius_km(E_mt, burst, overpressure_psi=1.0)
+        E_ground_mt = max(E_mt * ground_frac, 0.0)
+        r4 = blast_overpressure_radius_km(E_ground_mt, burst, overpressure_psi=4.0)
+        r12 = blast_overpressure_radius_km(E_ground_mt, burst, overpressure_psi=12.0)
+        r1 = blast_overpressure_radius_km(E_ground_mt, burst, overpressure_psi=1.0)
         exposure = estimate_population_impacts(r12, r4, r1)
-        Mw = seismic_moment_magnitude(E_j)
+        Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_frac)
         results.append(
             {
                 "diameter_m": d,
@@ -360,14 +391,6 @@ def fetch_today_neos():
 st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
 st.title("🛰️ Impactor-2025: Learn & Simulate")
 st.caption("An educational dashboard to explore asteroid impacts, built for a hackathon.")
-# ---- Session-state defaults (so we can programmatically update sliders) ----
-for k, v in {
-    "diameter_m": 150,
-    "velocity_km_s": 18.0,
-    "angle_deg": 45,
-}.items():
-    st.session_state.setdefault(k, v)
-
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -383,14 +406,38 @@ with exp_tab:
     st.subheader("Choose impact parameters")
     primary_cols = st.columns(4)
     with primary_cols[0]:
-        diameter_m = st.slider("Asteroid diameter (m)", 10, 2000,
-                            int(st.session_state["diameter_m"]), step=10, key="diameter_m")
+        diameter_default = int(st.session_state.get("diameter_m", 150))
+        diameter_kwargs = {
+            "min_value": 10,
+            "max_value": 2000,
+            "step": 10,
+            "key": "diameter_m",
+        }
+        if "diameter_m" not in st.session_state:
+            diameter_kwargs["value"] = diameter_default
+        diameter_m = st.slider("Asteroid diameter (m)", **diameter_kwargs)
     with primary_cols[1]:
-        velocity = st.slider("Velocity at impact (km/s)", 5.0, 70.0,
-                            float(st.session_state["velocity_km_s"]), step=0.5, key="velocity_km_s")
+        velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
+        velocity_kwargs = {
+            "min_value": 5.0,
+            "max_value": 70.0,
+            "step": 0.5,
+            "key": "velocity_km_s",
+        }
+        if "velocity_km_s" not in st.session_state:
+            velocity_kwargs["value"] = velocity_default
+        velocity = st.slider("Velocity at impact (km/s)", **velocity_kwargs)
     with primary_cols[2]:
-        angle = st.slider("Impact angle (°)", 10, 90,
-                        int(st.session_state["angle_deg"]), step=1, key="angle_deg")
+        angle_default = int(st.session_state.get("angle_deg", 45))
+        angle_kwargs = {
+            "min_value": 10,
+            "max_value": 90,
+            "step": 1,
+            "key": "angle_deg",
+        }
+        if "angle_deg" not in st.session_state:
+            angle_kwargs["value"] = angle_default
+        angle = st.slider("Impact angle (°)", **angle_kwargs)
     with primary_cols[3]:
         material = st.selectbox("Material preset", list(MATERIAL_PRESETS.keys()), index=1)
 
@@ -440,31 +487,35 @@ with exp_tab:
     m = asteroid_mass_kg(diameter_m, density)
     E_j = kinetic_energy_joules(m, velocity)
     E_mt = tnt_megatons(E_j)
-    burst_alt_km = estimate_burst_altitude_km(velocity, strength_mpa)
+    breakup_alt_km = estimate_burst_altitude_km(velocity, strength_mpa, diameter_m, angle)
+    burst_alt_km = max(0.0, breakup_alt_km - 6.0)
     ground_fraction = ground_energy_fraction(burst_alt_km)
     crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
     crater_km = crater_m / 1000.0
-    r_mod = blast_overpressure_radius_km(E_mt, burst_alt_km, overpressure_psi=4.0)
-    r_severe = blast_overpressure_radius_km(E_mt, burst_alt_km, overpressure_psi=12.0)
-    r_light = blast_overpressure_radius_km(E_mt, burst_alt_km, overpressure_psi=1.0)
+    # The height term inside blast_overpressure_radius_km already accounts for attenuation.
+    # Use actual ground-coupled energy; no artificial floor
+    E_ground_mt = max(E_mt * ground_fraction, 0.0)
+
+    r_mod = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, overpressure_psi=4.0)
+    r_severe = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, overpressure_psi=12.0)
+    r_light = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, overpressure_psi=1.0)
 
     # If the blast rings collapse (e.g., high-altitude bursts) but a crater forms, seed rings from the crater footprint
     crater_radius_km = max(crater_km / 2.0, 0.0)
-    if crater_radius_km > 0:
+    # Only force nesting when the blast calculation is effectively zero
+    if crater_radius_km > 0 and (E_ground_mt < 0.5 or r_mod < 0.1):
         r_severe = max(r_severe, crater_radius_km)
-        if r_mod <= r_severe:
-            r_mod = max(r_mod, r_severe * 1.6)
-        if r_light <= r_mod:
-            r_light = max(r_light, r_mod * 1.4)
+        r_mod = max(r_mod, r_severe * 1.6)
+        r_light = max(r_light, r_mod * 1.4)
 
     exposure = estimate_population_impacts(r_severe, r_mod, r_light, ring_densities=current_ring_densities)
-    Mw = seismic_moment_magnitude(E_j)
+    Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
 
     st.markdown("### Results")
     cols = st.columns(4)
     cols[0].metric("Mass", f"{m:,.0f} kg")
     cols[1].metric("Kinetic energy", f"{E_mt:,.2f} Mt TNT")
-    cols[2].metric("Breakup altitude", f"{burst_alt_km:.1f} km")
+    cols[2].metric("Breakup altitude", f"{breakup_alt_km:.1f} km")
     cols[3].metric("Ground-coupled energy", f"{E_mt * ground_fraction:.2f} Mt")
 
     crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else "Airburst"
