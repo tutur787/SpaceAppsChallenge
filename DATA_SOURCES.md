@@ -66,3 +66,26 @@ The NeoWs feed returns a rich set of attributes for each close-approach record. 
 | `orbital_data` (present in lookup endpoint) | Keplerian elements, ephemeris data | ✔︎ (separate endpoint) | ✘ | Required for orbit propagation view |
 
 To expand the MVP, extend `fetch_today_neos()` to persist the unused columns (e.g., `absolute_magnitude_h`, `close_approach_date`, `orbiting_body`) and surface them in the UI or downstream calculations (size-from-H conversions, encounter timelines, orbital tracks).
+
+## White Paper Parameters vs. NeoWs Coverage
+
+The PAIR framework (Mathias et al. 2017) calls for the following inputs. This table flags whether each parameter is obtainable directly from the NeoWs API; downstream implementation is tracked elsewhere.
+
+| White paper parameter | Needed for | Available via NeoWs? | NeoWs field(s) if available | Comments |
+| --- | --- | --- | --- | --- |
+| Absolute magnitude (*H*) | Diameter inference, size distribution (§2.1) | ✔︎ | `absolute_magnitude_h` | Provided in each NEO object |
+| Diameter (min/max) | Mass/energy, Monte Carlo sampling (§§2.1–2.3) | ✔︎ | `estimated_diameter` (meters/kilometers) | Multiple unit variants |
+| Albedo | Converting H to diameter (§2.1) | ✘ | — | Needs SMASS/WISE catalogues |
+| Bulk density | Mass, breakup models (§2.1) | ✘ | — | Literature/synthetic presets |
+| Material/strength parameters | Fragmentation, breakup (§2.2) | ✘ | — | Requires lab data; not in NeoWs |
+| Entry velocity at Earth | Energy deposition (§2.1) | ✔︎ | `close_approach_data.relative_velocity` | Units: km/s, km/h, mph |
+| Entry angle distribution | Atmospheric entry (§2.1) | ✘ | — | Derived statistically (PAIR Eq. 7) |
+| Impact probability / orbit covariance | Scenario weighting (§2.1) | ✘ | — | Requires Sentry/SPICE data |
+| Orbital elements (a, e, i, Ω, ω, M) | Trajectory propagation (§2.1) | ✔︎ (via lookup endpoint) | `orbital_data` | Need separate NeoWs lookup call |
+| Rotation state, shape | Detailed breakup modeling (§2.2) | ✘ | — | Often unknown; not in NeoWs |
+| Atmospheric profile | Energy deposition (§2.2) | ✘ | — | Use standard atmosphere models |
+| Target density, gravity | Crater scaling (§2.3) | ✘ | — | Geological datasets |
+| Population distribution | Consequence modeling (§2.5) | ✘ | — | USGS/WorldPop |
+| Seismic/tsunami vulnerability curves | Risk metrics (§§2.3–2.4) | ✘ | — | HAZUS/NOAA products |
+
+Only the bolded asteroid-orbit fundamentals (H, diameter, velocity, orbital elements) are covered by NeoWs. Environmental, material, and vulnerability parameters must be sourced from USGS datasets or domain literature acknowledged in the white paper.
