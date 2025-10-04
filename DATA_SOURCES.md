@@ -45,3 +45,32 @@ This file links the data requirements outlined in Mathias et al. (2017) — the 
 - **Monte Carlo priors** — Log-normal spreads around user-selected size, density, strength, and the canonical entry-angle distribution (PAIR Eq. 7) encoded in `run_pair_simulation()`.
 
 Replace the synthetic elements with the cited datasets (USGS DEMs, WorldPop/HAZUS rasters, SMASS taxonomy tables, etc.) before using the tool for decision support.
+
+# NEO columns
+
+# NEO Columns
+
+id
+neo_reference_id
+name
+absolute_magnitude_h
+estimated_diameter_min_km
+estimated_diameter_max_km
+estimated_diameter_min_m
+estimated_diameter_max_m
+estimated_diameter_min_miles
+estimated_diameter_max_miles
+estimated_diameter_min_ft
+estimated_diameter_max_ft
+is_potentially_hazardous_asteroid
+close_approach_date
+close_approach_date_full
+epoch_date_close_approach
+relative_velocity_kps
+relative_velocity_kph
+relative_velocity_mph
+miss_distance_au
+miss_distance_lunar
+miss_distance_km
+miss_distance_miles
+orbiting_body
