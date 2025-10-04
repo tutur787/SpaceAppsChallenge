@@ -1,29 +1,39 @@
 # SpaceAppsChallenge
-# How to run:
-  - Install (once): python3 -m pip install --upgrade streamlit numpy pandas requests
-  pydeck
-  - Optional for the NASA feed: export NASA_API_KEY=... (or edit API.env / .env)
-  - Launch the app: python3 -m streamlit run main.py
-  - To sanity-check without the UI, run a syntax pass: python3 -c "import ast;
-  ast.parse(open('main.py').read())"
 
-  If you prefer isolation, create and activate a virtualenv first (python3 -m venv .venv
-  && source .venv/bin/activate) and run the same install/start commands inside it.
+Meteor Madness is a Streamlit MVP that demonstrates how live NASA NeoWs data can seed an educational asteroid-impact simulator.
 
+## Requirements
 
-## NeoWs Live Test
-
-Your challenge is to develop an interactive visualization and simulation tool that enables users to explore asteroid impact scenarios, predict consequences, and evaluate mitigation strategies using real NASA and USGS datasets.
-
-Prerequisites:
 - Python 3.9+
-- `requests` and `python-dotenv` installed (for example: `pip3 install --user requests python-dotenv`)
-- NASA API key stored in `.env` as `NASA_API_KEY=your_key`
+- `streamlit`, `numpy`, `pandas`, `requests`, `pydeck`
+- Optional: `NASA_API_KEY` environment variable (falls back to `DEMO_KEY` for low-rate access)
 
-Run the integration test (hits the live NASA NeoWs API):
+To install dependencies once:
 
 ```bash
-python3 -m unittest tests.test_nasa_neo_live
+python3 -m pip install --upgrade streamlit numpy pandas requests pydeck
 ```
 
-If the environment variable is missing the live checks will be skipped automatically.
+## Running the app
+
+```bash
+export NASA_API_KEY=<your_api_key>  # optional
+python3 -m streamlit run main.py
+```
+
+On startup `main.py` fetches the current-day NeoWs feed. The first hazardous object (or the first object if no hazardous entries exist) becomes the **baseline** that hydrates the diameter and velocity sliders. If the API call fails, the app raises a warning and reverts to the documented whitepaper defaults.
+
+## Telemetry & provenance
+
+- The sidebar now lists dataset provenance (NeoWs feed status), slider validation results, and which sliders received live values.
+- For headless QA, set `METEOR_MADNESS_HEADLESS_TELEMETRY=1` before launching the app. The same telemetry summary is printed to stdout so you can capture it in logs/CI.
+
+## Tests
+
+Run the regression suite, which includes slider spec guards and telemetry helpers:
+
+```bash
+python3 -m pytest
+```
+
+The NeoWs integration check remains available via `python3 -m unittest tests.test_nasa_neo_live` when a live API key is configured.

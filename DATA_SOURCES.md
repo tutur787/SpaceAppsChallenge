@@ -38,6 +38,11 @@ This file links the data requirements outlined in Mathias et al. (2017) — the 
 - **NASA SBDB (Small-Body Database Lookup)** — Exercised in `tests/run_data_source_check.py` to cross-check NeoWs values. The lookup endpoint only accepts documented keys (`sstr`, `des`, `spk`) plus hyphenated options like `phys-par` and `full-prec`; the test script now filters requests to that allowlist and flattens the name/value arrays in the response (`orbit.elements`, `phys_par`) so downstream access uses simple dictionaries.
 - **Basemaps** — Mapbox Dark (with `MAPBOX_API_KEY`) or OpenStreetMap tiles for context maps.
 
+## Provenance telemetry
+
+- `main.py` now records dataset status and slider defaults through `src.telemetry`. Each slider default is tagged with a provenance label (`live`, `material_preset`, `whitepaper`, or `spec_floor`).
+- The Streamlit sidebar surfaces the current NeoWs baseline object, successful slider validations, and any warnings. Set `METEOR_MADNESS_HEADLESS_TELEMETRY=1` to mirror the same summary in terminal logs when running headless.
+
 ## Synthetic Placeholders
 
 - **Concentric population densities** — Severe: 5,000 people/km²; Moderate: 2,000; Light: 800. See `SYNTHETIC_POP_DENSITY` in `main.py`.
@@ -206,25 +211,8 @@ For a quick terminal report of which PAIR parameters map to NeoWs versus SBDB, r
 
 To exercise the full integration pipeline, `python3 tests/run_data_source_check.py` attempts to pull the white-paper parameters from both APIs (it auto-loads `.env` for keys) and prints the retrieved values side by side, aborting if either service is unreachable.
 
-## Mititgation Strategy
-| Mitigation Strategy | Estimated Lead Time | Suitable Classification(s) | Reason Description |
-| :--- | :--- | :--- | :--- |
-| **Ion Beam Shepherd** | 15–25+ years | **CM** | CM-type asteroids are very fragile and likely "rubble piles." This contactless and gentle strategy provides a slow, steady push without the risk of shattering the asteroid. |
-| **Gravity Tractor** | 15–25+ years | **LL** | As a fragile stony asteroid, this type requires a precise and non-destructive method. The slow gravitational pull of a spacecraft is the ideal choice for a controlled deflection. |
-| **Laser Ablation** | 10–20 years | **L** | This asteroid has moderate strength and can withstand a more direct force. Laser ablation creates a controlled, continuous thrust by vaporizing surface material, achieving a balance between power and precision. |
-| **Kinetic Impactor** | 5–15 years | **H / EUC / DIO / HOW** | These classifications represent strong to very strong, solid-body stony asteroids. They are ideal targets for a kinetic impactor as they are robust enough to withstand the collision and effectively transfer momentum. |
-| **Nuclear Standoff** | 2–5 years | **JAB / IIAB** | These are fragments of metallic cores, making them extremely dense and strong. A kinetic impactor may be insufficient; the immense energy from a nuclear standoff is required to generate enough thrust to deflect such a massive object. |
+### MVP slider implementation notes (2025-10-04)
 
-### Key Sources on Asteroid Mitigation Strategies
-
-* **DART Mission Results**
-    * Cheng, A. F., et al. (2023). *Momentum transfer from the DART mission kinetic impact on asteroid Dimorphos*. Nature, 616(7957), 457-460.
-    > This paper presents the primary scientific results of the DART mission, quantifying the effectiveness of the kinetic impactor technique.
-
-* **National Academies Strategic Report**
-    * National Research Council. (2010). *Defending Planet Earth: Near-Earth Object Surveys and Hazard Mitigation Strategies*. The National Academies Press.
-    > This is a foundational strategic white paper that provides a comprehensive assessment of the most viable mitigation techniques and evaluates their technological readiness.
-
-* **Planetary Defense Conference (PDC) Proceedings**
-    * International Academy of Astronautics (IAA). *Planetary Defense Conference Proceedings* (held biennially).
-    > This conference is the primary venue for the global planetary defense community to present the latest research, mission concepts, and modeling results for all mitigation strategies. The proceedings are a key source for up-to-date information.
+- All Streamlit sliders now read from `src/config/slider_specs.py`, which mirrors the Mathias et al. whitepaper ranges (diameter ≤ 300 m, velocity 11–35 km/s, breakup strength 0.1–10 MPa, etc.). The helper `_validate_slider_args()` in `main.py` raises immediately—and emits `st.error`—if any widget diverges from the spec table (bounds, step, or default), preventing silent UI drift.
+- Default slider values are hydrated from the daily NeoWs feed when available. The loader caches the feed, selects the first hazardous object (else the first entry), and surfaces warnings in the Explore tab when a parameter falls back to the whitepaper defaults.
+- Material presets that fall below the documented density floor (1.1 g/cm³ / 1100 kg m⁻³) are clamped to the whitepaper minimum; the UI captions call out the adjustment so reviewers know the preset is outside the canonical range.
