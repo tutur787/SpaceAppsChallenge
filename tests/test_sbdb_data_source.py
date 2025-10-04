@@ -11,7 +11,7 @@ performed inside the test to respect restricted environments).
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 
@@ -77,7 +77,7 @@ def extract_phys_params(sbdb_payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _maybe_float(value: Any, *, scale: float | None = None) -> float | None:
+def _maybe_float(value: Any, *, scale: Optional[float] = None) -> Optional[float]:
     if value is None:
         return None
     try:
