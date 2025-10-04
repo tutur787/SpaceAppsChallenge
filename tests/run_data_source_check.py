@@ -63,10 +63,10 @@ PARAMETERS = [
     ParameterSpec("Spectral class", None, ("phys_par", "spec")),
     ParameterSpec("Relative velocity (km/s)", ("close_approach_data", 0, "relative_velocity", "kilometers_per_second"), None),
     ParameterSpec("Miss distance (km)", ("close_approach_data", 0, "miss_distance", "kilometers"), None),
-    ParameterSpec("Semi-major axis a (AU)", ("orbital_data", "a"), ("orbit", "a")),
-    ParameterSpec("Eccentricity e", ("orbital_data", "e"), ("orbit", "e")),
-    ParameterSpec("Inclination i (deg)", ("orbital_data", "i"), ("orbit", "i")),
-    ParameterSpec("Argument of periapsis ω (deg)", ("orbital_data", "omega"), ("orbit", "w")),
+    ParameterSpec("Semi-major axis a (AU)", ("orbital_data", "semi_major_axis"), ("orbit", "a")),
+    ParameterSpec("Eccentricity e", ("orbital_data", "eccentricity"), ("orbit", "e")),
+    ParameterSpec("Inclination i (deg)", ("orbital_data", "inclination"), ("orbit", "i")),
+    ParameterSpec("Argument of periapsis ω (deg)", ("orbital_data", "perihelion_argument"), ("orbit", "w")),
     ParameterSpec("Longitude ascending node Ω (deg)", ("orbital_data", "ascending_node_longitude"), ("orbit", "om")),
 ]
 

@@ -68,13 +68,6 @@ SEA_LEVEL_DENSITY = 1.225  # kg/m^3
 SCALE_HEIGHT_KM = 7.16  # exponential atmosphere scale height
 DEFAULT_SEISMIC_COUPLING = 3e-4  # fraction of kinetic energy converted to seismic energy
 
-MATERIAL_PRESETS = {
-    "Carbonaceous chondrite": {"density": 1500, "strength_mpa": 1.0},
-    "Stony (ordinary chondrite)": {"density": 3000, "strength_mpa": 10.0},
-    "Iron-nickel": {"density": 7800, "strength_mpa": 50.0},
-    "Cometary (icy)": {"density": 600, "strength_mpa": 0.3},
-}
-
 # Synthetic fallback population density (people per square km) used when no live data layer is loaded.
 # Documented in data_sources.md for transparency.
 SYNTHETIC_POP_DENSITY = {
@@ -113,6 +106,232 @@ CITY_RING_DENSITY = {
 # Fallback densities for arbitrary lat/lon (rural/suburban blend)
 DEFAULT_RING_DENSITY = {"severe": 1200, "moderate": 500, "light": 200}
 
+# ----------------------------
+# External data helpers
+# ----------------------------
+
+
+@st.cache_data(show_spinner=False)
+def load_reference_defaults() -> Dict[str, Any]:
+    return get_reference_defaults()
+
+
+@st.cache_data(show_spinner=False)
+def cached_sbdb_payload(designation: str) -> Dict[str, Any]:
+    return fetch_sbdb_payload(designation)
+
+
+@st.cache_data(show_spinner=False)
+def cached_neo_payload(neo_id: str) -> Dict[str, Any]:
+    return fetch_neows_object(neo_id)
+
+
+_DEFAULTS_TRACE_EMITTED = False
+
+
+def print_startup_data_trace(
+    defaults: Dict[str, Any],
+    control_state: Optional[Dict[str, Any]] = None,
+) -> None:
+    global _DEFAULTS_TRACE_EMITTED
+    if _DEFAULTS_TRACE_EMITTED:
+        return
+    _DEFAULTS_TRACE_EMITTED = True
+
+    print("\n=== Dashboard data provenance snapshot ===")
+    neo_label = defaults.get("neo_name") or defaults.get("neo_designation") or DEFAULT_NEO_ID
+    sbdb_label = defaults.get("sbdb_fullname") or DEFAULT_SBDB_ID
+    provenance = defaults.get("provenance") or defaults.get("source", "synthetic fallback")
+    if defaults.get("source_error"):
+        print(f"[warn] data fetch issues: {defaults['source_error']}")
+    print(f"NeoWs target : {neo_label} (ID {DEFAULT_NEO_ID})")
+    print(f"SBDB target  : {sbdb_label}")
+    print(f"Density source: {provenance}")
+
+    field_sources = defaults.get("field_sources") or {}
+    if field_sources:
+        print("Field-level sources:")
+        for key in sorted(field_sources):
+            print(f"  - {key}: {field_sources[key]}")
+
+    try:
+        from tests.run_data_source_check import PARAMETERS as WHITEPAPER_PARAMS, get_nested
+    except ImportError:
+        print("[info] Parameter comparison table unavailable (tests package not importable).")
+        return
+
+    try:
+        neo_payload = cached_neo_payload(DEFAULT_NEO_ID)
+        neo_error = None
+    except NeoWsError as exc:
+        neo_payload = {}
+        neo_error = str(exc)
+    except Exception as exc:  # pragma: no cover - defensive log
+        neo_payload = {}
+        neo_error = str(exc)
+
+    try:
+        sbdb_payload = cached_sbdb_payload(DEFAULT_SBDB_ID)
+        sbdb_error = None
+    except SBDBError as exc:
+        sbdb_payload = {}
+        sbdb_error = str(exc)
+    except Exception as exc:  # pragma: no cover - defensive log
+        sbdb_payload = {}
+        sbdb_error = str(exc)
+
+    if neo_error:
+        print(f"[warn] NeoWs payload unavailable: {neo_error}")
+    if sbdb_error:
+        print(f"[warn] SBDB payload unavailable: {sbdb_error}")
+
+    selected_approach = defaults.get("close_approach_snapshot") or {}
+    selected_velocity = defaults.get("velocity_km_s")
+    selected_miss = defaults.get("miss_distance_km")
+
+    header = f"{ 'Parameter':35} { 'NeoWs value':>18} { 'SBDB value':>18} { 'Dashboard':>18} { 'Source':>18}"
+    print("\n" + header)
+    print("-" * len(header))
+
+    dashboard_field_map = {
+        "Absolute magnitude (H)": defaults.get("absolute_magnitude_h"),
+        "Diameter max (m)": defaults.get("diameter_m"),
+        "Bulk density (kg/m^3)": defaults.get("density"),
+        "Relative velocity (km/s)": defaults.get("velocity_km_s"),
+        "Spectral class": defaults.get("taxonomy"),
+        "Geometric albedo": defaults.get("albedo"),
+        "Rotation period (hr)": defaults.get("rotation_period_hr"),
+        "Miss distance (km)": defaults.get("miss_distance_km"),
+        "Semi-major axis a (AU)": defaults.get("semi_major_axis_au"),
+        "Eccentricity e": defaults.get("eccentricity"),
+        "Inclination i (deg)": defaults.get("inclination_deg"),
+        "Argument of periapsis ω (deg)": defaults.get("argument_of_periapsis_deg"),
+        "Longitude ascending node Ω (deg)": defaults.get("ascending_node_longitude_deg"),
+    }
+
+    source_key_map = {
+        "Absolute magnitude (H)": "absolute_magnitude_h",
+        "Diameter max (m)": "diameter_m",
+        "Bulk density (kg/m^3)": "density",
+        "Relative velocity (km/s)": "velocity_km_s",
+        "Spectral class": "taxonomy",
+        "Geometric albedo": "albedo",
+        "Rotation period (hr)": "rotation_period_hr",
+        "Miss distance (km)": "miss_distance_km",
+        "Semi-major axis a (AU)": "semi_major_axis_au",
+        "Eccentricity e": "eccentricity",
+        "Inclination i (deg)": "inclination_deg",
+        "Argument of periapsis ω (deg)": "argument_of_periapsis_deg",
+        "Longitude ascending node Ω (deg)": "ascending_node_longitude_deg",
+    }
+
+    def _fmt(value: object) -> str:
+        if value is None or value == "":
+            return "—"
+        if isinstance(value, float):
+            return f"{value:,.3g}"
+        if isinstance(value, int):
+            return f"{value:,.0f}"
+        text = str(value)
+        return text if len(text) <= 17 else text[:14] + "…"
+
+    for spec in WHITEPAPER_PARAMS:
+        if spec.label == "Relative velocity (km/s)" and selected_velocity is not None:
+            neo_value = selected_velocity
+        elif spec.label == "Miss distance (km)" and selected_miss is not None:
+            neo_value = selected_miss
+        else:
+            neo_value = get_nested(neo_payload, spec.neo_path) if neo_payload else None
+        sbdb_value = get_nested(sbdb_payload, spec.sbdb_path) if sbdb_payload else None
+        dashboard_value = dashboard_field_map.get(spec.label, "not used")
+        source_label = "—"
+        source_key = source_key_map.get(spec.label)
+        if source_key and source_key in field_sources and dashboard_value != "not used":
+            source_label = field_sources[source_key]
+
+        print(
+            f"{spec.label:35} "
+            f"{_fmt(neo_value):>18} "
+            f"{_fmt(sbdb_value):>18} "
+            f"{_fmt(dashboard_value):>18} "
+            f"{_fmt(source_label):>18}"
+        )
+
+    if control_state:
+        print("\nUI controls at startup:")
+        for label, value in control_state.items():
+            print(f"  - {label}: {value}")
+
+
+def gather_ui_control_state() -> Dict[str, Any]:
+    """Collect current slider/selectbox inputs for console transparency."""
+
+    control_map = [
+        ("Asteroid diameter (m)", "diameter_m"),
+        ("Impact velocity (km/s)", "velocity_km_s"),
+        ("Impact angle (deg)", "angle_deg"),
+        ("Material preset", "material_preset"),
+        ("Bulk density (kg/m³)", "bulk_density"),
+        ("Bulk strength (MPa)", "bulk_strength"),
+        ("City preset", "city_preset"),
+        ("Impact latitude (used)", "impact_lat_used"),
+        ("Impact longitude (used)", "impact_lon_used"),
+        ("Manual latitude entry", "impact_lat_manual"),
+        ("Manual longitude entry", "impact_lon_manual"),
+        ("Monte Carlo samples", "monte_carlo_samples"),
+        ("Deflection Δv (mm/s)", "deflect_delta_v"),
+        ("Deflection lead time (days)", "deflect_lead_days"),
+        ("Deflection bearing (deg)", "deflect_bearing"),
+        ("Daily NEO choice", "neo_pick"),
+    ]
+
+    state: Dict[str, Any] = {}
+    for label, key in control_map:
+        if key in st.session_state:
+            state[label] = st.session_state.get(key)
+    return state
+
+def ensure_session_defaults() -> None:
+    if st.session_state.get("_defaults_initialized"):
+        return
+
+    defaults = load_reference_defaults()
+
+    diameter_val = defaults.get("diameter_m")
+    if diameter_val is not None:
+        st.session_state.setdefault("diameter_m", int(round(diameter_val)))
+    else:
+        st.session_state.setdefault("diameter_m", 150.0)
+
+    velocity_val = defaults.get("velocity_km_s")
+    if velocity_val is not None:
+        st.session_state.setdefault("velocity_km_s", float(velocity_val))
+    else:
+        st.session_state.setdefault("velocity_km_s", 18.0)
+
+    st.session_state.setdefault("angle_deg", 45)
+
+    material = defaults.get("material") or "Stony (ordinary chondrite)"
+    st.session_state.setdefault("material_preset", material)
+
+    density_val = defaults.get("density")
+    if density_val is not None:
+        st.session_state.setdefault("bulk_density", float(density_val))
+    else:
+        st.session_state.setdefault(
+            "bulk_density", MATERIAL_PRESETS[material]["density"]
+        )
+
+    strength_val = defaults.get("strength_mpa")
+    if strength_val is not None:
+        st.session_state.setdefault("bulk_strength", float(strength_val))
+    else:
+        st.session_state.setdefault(
+            "bulk_strength", MATERIAL_PRESETS[material]["strength_mpa"]
+        )
+
+    st.session_state["defaults_metadata"] = defaults
+    st.session_state["_defaults_initialized"] = True
 # ----------------------------
 # Simple physics helpers (educational approximations)
 # ----------------------------
@@ -885,6 +1104,30 @@ def emit_headless_telemetry(force: bool = False) -> int:
 
     return 0
 
+    neos = []
+    objects = (feed.get("near_earth_objects") or {}).get(today, [])
+    for neo in objects:
+        diameter_info = (neo.get("estimated_diameter") or {}).get("meters") or {}
+        close_approach = (neo.get("close_approach_data") or [])
+        approach = close_approach[0] if close_approach else {}
+        velocity = _safe_float((approach.get("relative_velocity") or {}).get("kilometers_per_second"))
+        miss_km = _safe_float((approach.get("miss_distance") or {}).get("kilometers"))
+        neos.append(
+            {
+                "name": neo.get("name"),
+                "neo_reference_id": neo.get("neo_reference_id"),
+                "designation": neo.get("designation"),
+                "absolute_magnitude_h": _safe_float(neo.get("absolute_magnitude_h")),
+                "est_diameter_min_m": _safe_float(diameter_info.get("estimated_diameter_min")),
+                "est_diameter_max_m": _safe_float(diameter_info.get("estimated_diameter_max")),
+                "hazardous": bool(neo.get("is_potentially_hazardous_asteroid", False)),
+                "velocity_km_s": velocity,
+                "miss_distance_km": miss_km,
+            }
+        )
+
+    return pd.DataFrame(neos)
+
 
 # ----------------------------
 # UI
@@ -898,6 +1141,10 @@ seed_live_slider_defaults(neo_df)
 
 st.title("🛰️ Impactor-2025: Learn & Simulate")
 st.caption("An educational dashboard to explore asteroid impacts, built for a hackathon.")
+
+ensure_session_defaults()
+defaults_meta = st.session_state.get("defaults_metadata", {})
+
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -995,9 +1242,9 @@ with exp_tab:
         lat, lon = CITY_PRESETS[preset]
     else:
         with c2:
-            lat = st.number_input("Latitude", value=29.7604, format="%.4f")
+            lat = st.number_input("Latitude", value=29.7604, format="%.4f", key="impact_lat_manual")
         with c3:
-            lon = st.number_input("Longitude", value=-95.3698, format="%.4f")
+            lon = st.number_input("Longitude", value=-95.3698, format="%.4f", key="impact_lon_manual")
     # Choose densities based on city selection
     report = ensure_report(st.session_state)
     if preset in CITY_RING_DENSITY:
@@ -1027,6 +1274,9 @@ with exp_tab:
             report,
             "Using synthetic population density in live mode — consider switching to a city preset or integrating real population data.",
         )
+
+    st.session_state["impact_lat_used"] = float(lat)
+    st.session_state["impact_lon_used"] = float(lon)
 
     # Computations
     m = asteroid_mass_kg(diameter_m, density)
@@ -1377,6 +1627,27 @@ with learn_tab:
 render_sidebar_telemetry(st.session_state.get("live_slider_defaults_meta", {}))
 st.sidebar.markdown("---")
 st.sidebar.title("About this MVP")
+if defaults_meta:
+    default_name = (
+        defaults_meta.get("sbdb_fullname")
+        or defaults_meta.get("neo_name")
+        or DEFAULT_SBDB_ID
+    )
+    provenance = defaults_meta.get("provenance", "NeoWs/SBDB")
+    taxonomy = defaults_meta.get("taxonomy")
+    density_val = defaults_meta.get("density")
+    st.sidebar.markdown(
+        "**Default object:** {name}<br>"
+        "Source: {src}<br>"
+        "Spectral class: {tax}<br>"
+        "Density: {dens:,.0f} kg/m³".format(
+            name=default_name,
+            src=provenance,
+            tax=taxonomy or "n/a",
+            dens=density_val or 0.0,
+        ),
+        unsafe_allow_html=True,
+    )
 st.sidebar.info(
     "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data."
 )
