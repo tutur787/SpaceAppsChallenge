@@ -214,3 +214,17 @@ To exercise the full integration pipeline, `python3 tests/run_data_source_check.
 | **Laser Ablation** | 10–20 years | **L** | This asteroid has moderate strength and can withstand a more direct force. Laser ablation creates a controlled, continuous thrust by vaporizing surface material, achieving a balance between power and precision. |
 | **Kinetic Impactor** | 5–15 years | **H / EUC / DIO / HOW** | These classifications represent strong to very strong, solid-body stony asteroids. They are ideal targets for a kinetic impactor as they are robust enough to withstand the collision and effectively transfer momentum. |
 | **Nuclear Standoff** | 2–5 years | **JAB / IIAB** | These are fragments of metallic cores, making them extremely dense and strong. A kinetic impactor may be insufficient; the immense energy from a nuclear standoff is required to generate enough thrust to deflect such a massive object. |
+
+### Key Sources on Asteroid Mitigation Strategies
+
+* **DART Mission Results**
+    * Cheng, A. F., et al. (2023). *Momentum transfer from the DART mission kinetic impact on asteroid Dimorphos*. Nature, 616(7957), 457-460.
+    > This paper presents the primary scientific results of the DART mission, quantifying the effectiveness of the kinetic impactor technique.
+
+* **National Academies Strategic Report**
+    * National Research Council. (2010). *Defending Planet Earth: Near-Earth Object Surveys and Hazard Mitigation Strategies*. The National Academies Press.
+    > This is a foundational strategic white paper that provides a comprehensive assessment of the most viable mitigation techniques and evaluates their technological readiness.
+
+* **Planetary Defense Conference (PDC) Proceedings**
+    * International Academy of Astronautics (IAA). *Planetary Defense Conference Proceedings* (held biennially).
+    > This conference is the primary venue for the global planetary defense community to present the latest research, mission concepts, and modeling results for all mitigation strategies. The proceedings are a key source for up-to-date information.
