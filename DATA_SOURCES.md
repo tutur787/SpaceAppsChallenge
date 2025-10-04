@@ -46,6 +46,60 @@ This file links the data requirements outlined in Mathias et al. (2017) — the 
 
 Replace the synthetic elements with the cited datasets (USGS DEMs, WorldPop/HAZUS rasters, SMASS taxonomy tables, etc.) before using the tool for decision support.
 
+## Asteroid Classification, Density, and Strength (Updated)
+
+This revised table provides the estimated **bulk density** of asteroids by applying a 34% porosity to meteorite samples. The aerodynamic strength ranges are updated based on observational data for each specific classification.
+
+| Classification | Estimated Bulk Density (g/cm³) | Aerodynamic Strength Range (MPa) | Meaning | Source (Density, Strength) |
+| :--- | :--- | :--- | :--- | :--- |
+| **CM** | $1.50$ | 0.01–0.1 | **Carbonaceous (Mighei-like)**: A carbon-rich type containing water and organic compounds; very fragile. | [1], [2] |
+| **LL** | $2.11$ | 0.1–1 | **Low Iron, Low Metal**: A stony type with low total iron and very little in metallic form. | [1], [2] |
+| **L** | $2.18$ | 1–4 | **Low Iron**: A common stony type with a lower iron content than H-types. | [1], [2] |
+| **H** | $2.23$ | 4–20 | **High Iron**: A common stony type with a high amount of metallic iron; relatively strong. | [1], [2] |
+| **EUC** | $1.87$ | > 20 | **Eucrite**: A stony type from the crust of 4 Vesta, similar to volcanic rock (basalt); very strong. | [1], [2] |
+| **DIO** | $2.06$ | > 20 | **Diogenite**: A stony type from deep within the crust of 4 Vesta; also very strong. | [1], [2] |
+| **HOW** | $1.89$ | > 20 | **Howardite**: A stony type from the surface of asteroid 4 Vesta; a mix of Eucrite and Diogenite. | [1], [2] |
+| **JAB / IIAB** | $4.46–4.72$ | > 100 | **Iron Meteorites**: Fragments from the metallic cores of large, molten asteroids; extremely strong. | [1], [2] |
+
+---
+
+### Formulas Used in This Table
+
+#### Calculating Bulk Density
+
+The bulk density of an asteroid is estimated by adjusting the solid (grain) density of its corresponding meteorite type for macroporosity (empty space).
+
+The formula is:
+$$\rho_{bulk} = \rho_{grain} \times (1 - \phi)$$
+
+-   **$\rho_{bulk}$**: The bulk density of the entire asteroid.
+-   **$\rho_{grain}$**: The grain density of the solid meteorite material.
+-   **$\phi$**: The macroporosity, or the fraction of empty space (a mean value of 0.34, or 34%, is used here).
+
+**Example (H-type asteroid):**
+-   Grain density = $3.38 \text{ g/cm}^3$
+-   Calculation: $3.38 \times (1 - 0.34) = 3.38 \times 0.66 = 2.23 \text{ g/cm}^3$.
+
+#### Defining Aerodynamic Strength
+
+Aerodynamic strength is the maximum **ram pressure** an object can withstand before breaking up during atmospheric entry. The values in the table are the measured strengths at which this breakup occurs.
+
+The formula for ram pressure is:
+$$P_{ram} = \rho_{air} v^2$$
+
+-   **$P_{ram}$**: The ram pressure, the force exerted on the asteroid by the atmosphere.
+-   **$\rho_{air}$**: The density of the air at the asteroid's altitude.
+-   **$v$**: The velocity of the asteroid.
+
+An asteroid breaks apart when **$P_{ram}$ > Aerodynamic Strength**.
+
+---
+
+### Sources
+
+1.  **Mathias, D. L., Wheeler, L. F., & Dotson, J. L. (2017).** *A probabilistic asteroid impact risk model: Assessment of sub-300 m impacts*. Icarus, 289, 106-119. (Density data derived from Table 1 and macroporosity model).
+2.  **Popova, O. P., et al. (2011).** *Very low strengths of interplanetary meteoroids and small asteroids*. Meteoritics & Planetary Science, 46(10), 1525-1550. (Strength data sourced from observational analysis).
+
 ## NeoWs Field Coverage
 
 The NeoWs feed returns a rich set of attributes for each close-approach record. The table below marks which columns the API exposes and whether the current MVP ingests them.
