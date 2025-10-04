@@ -29,3 +29,34 @@
     1. Extend `README.md` with a "Data prerequisites" section covering NASA API key, SBDB usage, USGS tokens, and caching strategy.
     2. Note the new optional `.env` keys (`USGS_API_KEY`, `SBDB_CACHE_PATH`) and reference them in `tests/run_data_source_check.py`.
     3. Embed quickstart snippets for running the crater/tsunami unit tests and the updated data-source check.
+
+- [ ] Force MVP sliders to mirror whitepaper parameters exactly.
+    1. Build a slider-to-parameter mapping table from `DATA_SOURCES.md` that enforces identical labels, units, bounds, and default step sizes.
+        - 2025-10-04: `src/config/slider_specs.py` created and the Streamlit UI now consumes the canonical specs.
+    2. Add validation in the UI layer that raises/logs when a slider diverges from the whitepaper spec so regressions are obvious during development.
+        - 2025-10-04: `_validate_slider_args()` in `main.py` now fails fast (and surfaces `st.error`) whenever slider kwargs drift from the spec table.
+    3. Document any intentional deviations (if required) inline in `DATA_SOURCES.md` so reviewers know the rationale.
+
+- [ ] Seed slider defaults with live API values instead of hard-coded numbers.
+    1. Fetch baseline values from NeoWs/SBDB before rendering Streamlit widgets and hydrate `st.session_state` accordingly.
+        - 2025-10-04: Explore tab seeds defaults from today's NeoWs feed with fallback warnings when live data is unavailable.
+    2. Provide a fallback path (with an explicit warning) if the API call fails so we never silently fall back to synthetic presets.
+
+- [ ] Detect and flag any synthetic data in the MVP pipeline.
+    1. Tag every dataset record with a provenance flag (`live`, `cached`, `synthetic`) during ingestion.
+    2. Surface the flag in both the logging/CLI printout and the frontend sidebar so users know when data is fabricated.
+        - 2025-10-05: Sidebar + headless telemetry scaffolding landed (`src.telemetry`) with provenance labels (`live`, `material_preset`, `whitepaper`, `spec_floor`). Extend to enforce synthetic detection in Phase 2.
+    3. Extend telemetry to differentiate cached vs synthetic feeds and fail the headless report when synthetic data appears unexpectedly (Phase 2 follow-up).
+
+- [ ] Audit dropdown behaviour for whitepaper and synthetic views.
+    1. Write a smoke test that asserts the "White paper inputs" dropdown emits the expected options instead of rendering blank.
+    2. Decide whether the "Synthetic exposure breakdown" dropdown should exist; if removal is chosen, excise the component and associated state.
+
+- [ ] Replace the "Today's NEO data" table with a selector-driven workflow.
+    1. Render a dropdown (or searchable select) populated with the day's NeoWs objects; selecting one should hydrate the detail panels.
+    2. Preserve access to the full table via a secondary "View details" action so power users can still inspect the dataset.
+
+- [ ] Print a full telemetry dump when running `main.py` non-interactively.
+    1. Emit a terminal report summarising slider bindings, data provenance flags, and dropdown option counts so QA can run in headless mode.
+    2. Fail fast (non-zero exit) when the report detects missing bindings, blank dropdowns, or synthetic data where it should not appear.
+        - 2025-10-05: Added environment-controlled headless summary via `METEOR_MADNESS_HEADLESS_TELEMETRY`; expand with exit codes and dropdown metrics in Phase 4.

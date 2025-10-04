@@ -38,6 +38,11 @@ This file links the data requirements outlined in Mathias et al. (2017) — the 
 - **NASA SBDB (Small-Body Database Lookup)** — Exercised in `tests/run_data_source_check.py` to cross-check NeoWs values. The lookup endpoint only accepts documented keys (`sstr`, `des`, `spk`) plus hyphenated options like `phys-par` and `full-prec`; the test script now filters requests to that allowlist and flattens the name/value arrays in the response (`orbit.elements`, `phys_par`) so downstream access uses simple dictionaries.
 - **Basemaps** — Mapbox Dark (with `MAPBOX_API_KEY`) or OpenStreetMap tiles for context maps.
 
+## Provenance telemetry
+
+- `main.py` now records dataset status and slider defaults through `src.telemetry`. Each slider default is tagged with a provenance label (`live`, `material_preset`, `whitepaper`, or `spec_floor`).
+- The Streamlit sidebar surfaces the current NeoWs baseline object, successful slider validations, and any warnings. Set `METEOR_MADNESS_HEADLESS_TELEMETRY=1` to mirror the same summary in terminal logs when running headless.
+
 ## Synthetic Placeholders
 
 - **Concentric population densities** — Severe: 5,000 people/km²; Moderate: 2,000; Light: 800. See `SYNTHETIC_POP_DENSITY` in `main.py`.
@@ -205,3 +210,9 @@ Use the shared designation as the primary key when fusing NeoWs encounter data w
 For a quick terminal report of which PAIR parameters map to NeoWs versus SBDB, run `python3 tests/print_data_source_matrix.py`; this prints the same availability matrix captured above and can optionally fetch live SBDB data when `LIVE=1` is set (override the target with `SBDB_ID=Apophis` or a preferred designation).
 
 To exercise the full integration pipeline, `python3 tests/run_data_source_check.py` attempts to pull the white-paper parameters from both APIs (it auto-loads `.env` for keys) and prints the retrieved values side by side, aborting if either service is unreachable.
+
+### MVP slider implementation notes (2025-10-04)
+
+- All Streamlit sliders now read from `src/config/slider_specs.py`, which mirrors the Mathias et al. whitepaper ranges (diameter ≤ 300 m, velocity 11–35 km/s, breakup strength 0.1–10 MPa, etc.). The helper `_validate_slider_args()` in `main.py` raises immediately—and emits `st.error`—if any widget diverges from the spec table (bounds, step, or default), preventing silent UI drift.
+- Default slider values are hydrated from the daily NeoWs feed when available. The loader caches the feed, selects the first hazardous object (else the first entry), and surfaces warnings in the Explore tab when a parameter falls back to the whitepaper defaults.
+- Material presets that fall below the documented density floor (1.1 g/cm³ / 1100 kg m⁻³) are clamped to the whitepaper minimum; the UI captions call out the adjustment so reviewers know the preset is outside the canonical range.
