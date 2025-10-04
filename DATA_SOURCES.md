@@ -205,3 +205,12 @@ Use the shared designation as the primary key when fusing NeoWs encounter data w
 For a quick terminal report of which PAIR parameters map to NeoWs versus SBDB, run `python3 tests/print_data_source_matrix.py`; this prints the same availability matrix captured above and can optionally fetch live SBDB data when `LIVE=1` is set (override the target with `SBDB_ID=Apophis` or a preferred designation).
 
 To exercise the full integration pipeline, `python3 tests/run_data_source_check.py` attempts to pull the white-paper parameters from both APIs (it auto-loads `.env` for keys) and prints the retrieved values side by side, aborting if either service is unreachable.
+
+## Mititgation Strategy
+| Mitigation Strategy | Estimated Lead Time | Suitable Classification(s) | Reason Description |
+| :--- | :--- | :--- | :--- |
+| **Ion Beam Shepherd** | 15–25+ years | **CM** | CM-type asteroids are very fragile and likely "rubble piles." This contactless and gentle strategy provides a slow, steady push without the risk of shattering the asteroid. |
+| **Gravity Tractor** | 15–25+ years | **LL** | As a fragile stony asteroid, this type requires a precise and non-destructive method. The slow gravitational pull of a spacecraft is the ideal choice for a controlled deflection. |
+| **Laser Ablation** | 10–20 years | **L** | This asteroid has moderate strength and can withstand a more direct force. Laser ablation creates a controlled, continuous thrust by vaporizing surface material, achieving a balance between power and precision. |
+| **Kinetic Impactor** | 5–15 years | **H / EUC / DIO / HOW** | These classifications represent strong to very strong, solid-body stony asteroids. They are ideal targets for a kinetic impactor as they are robust enough to withstand the collision and effectively transfer momentum. |
+| **Nuclear Standoff** | 2–5 years | **JAB / IIAB** | These are fragments of metallic cores, making them extremely dense and strong. A kinetic impactor may be insufficient; the immense energy from a nuclear standoff is required to generate enough thrust to deflect such a massive object. |
