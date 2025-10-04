@@ -72,6 +72,19 @@ CITY_PRESETS = {
     "Rio de Janeiro, Brazil": (-22.9068, -43.1729),
 }
 
+# Approximate ring densities (people/km²) for presets — educational, not census-accurate.
+CITY_RING_DENSITY = {
+    "New York City, USA":      {"severe": 10000, "moderate": 4000, "light": 1500},
+    "Los Angeles, USA":        {"severe":  6000, "moderate": 2500, "light": 1000},
+    "London, UK":              {"severe":  7000, "moderate": 3000, "light": 1200},
+    "Tokyo, Japan":            {"severe":  8000, "moderate": 3500, "light": 1400},
+    "Sydney, Australia":       {"severe":  4000, "moderate": 1500, "light":  600},
+    "Rio de Janeiro, Brazil":  {"severe":  6500, "moderate": 2800, "light": 1100},
+}
+
+# Fallback densities for arbitrary lat/lon (rural/suburban blend)
+DEFAULT_RING_DENSITY = {"severe": 1200, "moderate": 500, "light": 200}
+
 # ----------------------------
 # Simple physics helpers (educational approximations)
 # ----------------------------
@@ -109,9 +122,13 @@ def ground_energy_fraction(burst_altitude_km: float) -> float:
     """Approximate fraction of kinetic energy that couples to the ground (PAIR-inspired)."""
     if burst_altitude_km <= 0:
         return 1.0
-    if burst_altitude_km >= 25.0:
-        return 0.0
-    return max(0.0, 1.0 - burst_altitude_km / 25.0)
+    # Hackathon-friendly smoothing: keep a gradual decay so high-altitude bursts still
+    # couple a tiny amount of energy instead of instantly dropping to zero at 25 km.
+    # Logistic curve mimics the PAIR trend without requiring the full atmospheric model.
+    scale_height = 2.8  # steeper value = faster drop-off with altitude
+    midpoint = 18.0  # around this altitude half the energy reaches the ground
+    fraction = 1.0 / (1.0 + math.exp((burst_altitude_km - midpoint) / scale_height))
+    return float(max(0.0, min(1.0, fraction)))
 
 
 def transient_crater_diameter_m(
@@ -140,7 +157,8 @@ def final_crater_diameter_m(
     burst_altitude_km: float,
 ) -> float:
     energy_fraction = ground_energy_fraction(burst_altitude_km)
-    if energy_fraction <= 0:
+    # Treat very low ground coupling as an airburst.
+    if energy_fraction <= 0 or energy_fraction < 0.02:
         return 0.0
     transient = transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg)
     if transient <= 0:
@@ -175,35 +193,57 @@ def seismic_moment_magnitude(E_joules: float, coupling: float = DEFAULT_SEISMIC_
     return (2.0 / 3.0) * (math.log10(seismic_energy) - 4.8)
 
 
-def estimate_population_impacts(r_severe: float, r_moderate: float, r_light: float) -> dict[str, float]:
+def estimate_population_impacts(
+    r_severe: float,
+    r_moderate: float,
+    r_light: float,
+    ring_densities: Optional[dict[str, float]] = None,
+) -> dict[str, float]:
+    # Coerce non-finite values to 0
+    def _safe(x: float) -> float:
+        try:
+            x = float(x)
+        except Exception:
+            return 0.0
+        return x if math.isfinite(x) and x > 0 else 0.0
+
+    r_severe = _safe(r_severe)
+    r_moderate = _safe(r_moderate)
+    r_light = _safe(r_light)
+
     radii = sorted([r_severe, r_moderate, r_light])
     if radii[-1] <= 0:
-        return {"severe": 0.0, "moderate": 0.0, "light": 0.0}
-    severe = max(r_severe, 0.0)
+        return {"severe": 0.0, "moderate": 0.0, "light": 0.0, "total": 0.0, "casualties": 0.0}
+
+    # Enforce nesting
+    severe = r_severe
     moderate = max(r_moderate, severe)
     light = max(r_light, moderate)
 
+    # Areas in km² of each ring (annuli)
     areas = {
         "severe": math.pi * severe ** 2,
         "moderate": math.pi * moderate ** 2 - math.pi * severe ** 2,
         "light": math.pi * light ** 2 - math.pi * moderate ** 2,
     }
 
+    # Pick densities: city-specific → fallback → legacy synthetic
+    if ring_densities is None:
+        ring_densities = DEFAULT_RING_DENSITY
+
     exposure = {}
     for ring, area in areas.items():
-        density = SYNTHETIC_POP_DENSITY.get(ring, 0)
-        exposure[ring] = max(0.0, area) * density
+        density = float(ring_densities.get(ring, SYNTHETIC_POP_DENSITY.get(ring, 0)))
+        exposure[ring] = max(0.0, area) * max(0.0, density)
+
     exposure["total"] = sum(exposure.values())
 
     casualties = 0.0
-    for ring, pop in exposure.items():
-        if ring == "total":
-            continue
-        rate = SYNTHETIC_CASUALTY_RATE.get(ring, 0.0)
-        casualties += pop * rate
+    for ring in ("severe", "moderate", "light"):
+        rate = float(SYNTHETIC_CASUALTY_RATE.get(ring, 0.0))
+        casualties += exposure[ring] * rate
     exposure["casualties"] = casualties
     return exposure
-
 
 def run_pair_simulation(
     samples: int,
@@ -320,6 +360,21 @@ def fetch_today_neos():
 st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
 st.title("🛰️ Impactor-2025: Learn & Simulate")
 st.caption("An educational dashboard to explore asteroid impacts, built for a hackathon.")
+# ---- Session-state defaults (so we can programmatically update sliders) ----
+for k, v in {
+    "diameter_m": 150,
+    "velocity_km_s": 18.0,
+    "angle_deg": 45,
+}.items():
+    st.session_state.setdefault(k, v)
+
+# If an interaction queued widget overrides (e.g., from the NASA NEO picker),
+# apply them before any widgets with those keys are instantiated.
+if "widget_overrides" in st.session_state:
+    overrides = st.session_state.pop("widget_overrides")
+    for key, value in overrides.items():
+        st.session_state[key] = value
+
 
 # Tabs
 exp_tab, defend_tab, learn_tab = st.tabs(["Explore", "Defend Earth", "Learn"])
@@ -328,11 +383,14 @@ with exp_tab:
     st.subheader("Choose impact parameters")
     primary_cols = st.columns(4)
     with primary_cols[0]:
-        diameter_m = st.slider("Asteroid diameter (m)", 10, 2000, 150, step=10)
+        diameter_m = st.slider("Asteroid diameter (m)", 10, 2000,
+                            int(st.session_state["diameter_m"]), step=10, key="diameter_m")
     with primary_cols[1]:
-        velocity = st.slider("Velocity at impact (km/s)", 5.0, 70.0, 18.0, step=0.5)
+        velocity = st.slider("Velocity at impact (km/s)", 5.0, 70.0,
+                            float(st.session_state["velocity_km_s"]), step=0.5, key="velocity_km_s")
     with primary_cols[2]:
-        angle = st.slider("Impact angle (°)", 10, 90, 45, step=1)
+        angle = st.slider("Impact angle (°)", 10, 90,
+                        int(st.session_state["angle_deg"]), step=1, key="angle_deg")
     with primary_cols[3]:
         material = st.selectbox("Material preset", list(MATERIAL_PRESETS.keys()), index=1)
 
@@ -372,6 +430,11 @@ with exp_tab:
             lat = st.number_input("Latitude", value=29.7604, format="%.4f")
         with c3:
             lon = st.number_input("Longitude", value=-95.3698, format="%.4f")
+    # Choose densities based on city selection
+    if preset in CITY_RING_DENSITY:
+        current_ring_densities = CITY_RING_DENSITY[preset]
+    else:
+        current_ring_densities = DEFAULT_RING_DENSITY
 
     # Computations
     m = asteroid_mass_kg(diameter_m, density)
@@ -384,7 +447,17 @@ with exp_tab:
     r_mod = blast_overpressure_radius_km(E_mt, burst_alt_km, overpressure_psi=4.0)
     r_severe = blast_overpressure_radius_km(E_mt, burst_alt_km, overpressure_psi=12.0)
     r_light = blast_overpressure_radius_km(E_mt, burst_alt_km, overpressure_psi=1.0)
-    exposure = estimate_population_impacts(r_severe, r_mod, r_light)
+
+    # If the blast rings collapse (e.g., high-altitude bursts) but a crater forms, seed rings from the crater footprint
+    crater_radius_km = max(crater_km / 2.0, 0.0)
+    if crater_radius_km > 0:
+        r_severe = max(r_severe, crater_radius_km)
+        if r_mod <= r_severe:
+            r_mod = max(r_mod, r_severe * 1.6)
+        if r_light <= r_mod:
+            r_light = max(r_light, r_mod * 1.4)
+
+    exposure = estimate_population_impacts(r_severe, r_mod, r_light, ring_densities=current_ring_densities)
     Mw = seismic_moment_magnitude(E_j)
 
     st.markdown("### Results")
@@ -402,11 +475,13 @@ with exp_tab:
     cols2[3].metric("Light radius (1 psi)", f"{r_light:.2f} km")
 
     cols3 = st.columns(3)
-    cols3[0].metric("Population exposed", f"{exposure['total']:,.0f}")
-    cols3[1].metric("Estimated casualties", f"{exposure['casualties']:,.0f}")
+    cols3[0].metric("Population exposed", f"{exposure.get('total', 0.0):,.0f}")
+    cols3[1].metric("Estimated casualties", f"{exposure.get('casualties', 0.0):,.0f}")
     cols3[2].metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
 
-    st.caption("Population estimates rely on documented synthetic density rings; replace with real datasets when available.")
+    st.caption(
+        "Population estimates rely on documented synthetic density rings and fall back to the crater footprint when blast rings vanish; replace with real datasets when available."
+    )
 
     with st.expander("Synthetic exposure breakdown"):
         exposure_rows = []
@@ -502,12 +577,67 @@ with exp_tab:
 
     st.pydeck_chart(deck)
 
-    with st.expander("Optional: fetch today's NEOs from NASA (for context)"):
+    # --- PATCH 2: make NEOs usable + educational summaries ---
+    with st.expander("Use today's NASA NEOs as inputs"):
         df = fetch_today_neos()
         if df.empty:
             st.info("Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
         else:
-            st.dataframe(df)
+            # Derive average diameter and lunar-distance multiples for context
+            df = df.copy()
+            df["diameter_avg_m"] = 0.5 * (df["est_diameter_min_m"] + df["est_diameter_max_m"])
+            MOON_KM = 384_400.0
+            df["miss_distance_moon_x"] = df["miss_distance_km"] / MOON_KM
+
+            # Short, readable view
+            view_cols = ["name", "diameter_avg_m", "velocity_km_s", "miss_distance_km", "miss_distance_moon_x", "hazardous"]
+            st.dataframe(df[view_cols].rename(columns={
+                "diameter_avg_m": "diameter_avg_m (m)",
+                "miss_distance_km": "miss_distance (km)",
+                "miss_distance_moon_x": "miss distance (× Moon)"
+            }))
+
+            # Pick one and push into the simulator
+            choice = st.selectbox(
+                "Pick an asteroid to simulate (what-if it hit):",
+                options=df["name"].tolist()
+            )
+            row = df.loc[df["name"] == choice].iloc[0]
+
+            st.caption(
+                f"Selected **{row['name']}** — avg diameter ≈ {row['diameter_avg_m']:.1f} m, "
+                f"speed ≈ {row['velocity_km_s']:.2f} km/s, "
+                f"miss distance ≈ {row['miss_distance_km']:.0f} km (~{row['miss_distance_moon_x']:.1f}× Moon)."
+            )
+
+            colA, colB = st.columns(2)
+            with colA:
+                if st.button("Use this NEO in the simulator"):
+                    diameter_value = row["diameter_avg_m"]
+                    if diameter_value is None or pd.isna(diameter_value):
+                        diameter_value = st.session_state["diameter_m"]
+                    diameter_value = int(np.clip(diameter_value, 10, 2000))
+
+                    velocity_value = row["velocity_km_s"]
+                    if velocity_value is None or pd.isna(velocity_value):
+                        velocity_value = st.session_state["velocity_km_s"]
+                    velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
+
+                    override_values = {
+                        "diameter_m": diameter_value,
+                        "velocity_km_s": velocity_value,
+                        # Reset to a representative entry angle for clarity when swapping asteroids
+                        "angle_deg": 45,
+                    }
+                    st.session_state["widget_overrides"] = override_values
+                    st.rerun()
+            with colB:
+                # A quick educational “scale” card
+                mass = asteroid_mass_kg(row["diameter_avg_m"], density)
+                E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
+                st.metric("What-if energy (preview)", f"{E_mt_preview:,.2f} Mt TNT")
+                st.caption("Preview assumes current density/material selection.")
+
 
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
