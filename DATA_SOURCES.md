@@ -56,14 +56,14 @@ This revised table provides the estimated **bulk density** of asteroids by apply
 | **LL** | $2.11$ | 0.1–1 | **Low Iron, Low Metal**: A stony type with low total iron and very little in metallic form. | [1], [2] |
 | **L** | $2.18$ | 1–4 | **Low Iron**: A common stony type with a lower iron content than H-types. | [1], [2] |
 | **H** | $2.23$ | 4–20 | **High Iron**: A common stony type with a high amount of metallic iron; relatively strong. | [1], [2] |
-| **EUC** | $1.87$ | > 20 | **Eucrite**: A stony type from the crust of 4 Vesta, similar to volcanic rock (basalt); very strong. | [1], [2] |
-| **DIO** | $2.06$ | > 20 | **Diogenite**: A stony type from deep within the crust of 4 Vesta; also very strong. | [1], [2] |
-| **HOW** | $1.89$ | > 20 | **Howardite**: A stony type from the surface of asteroid 4 Vesta; a mix of Eucrite and Diogenite. | [1], [2] |
-| **JAB / IIAB** | $4.46–4.72$ | > 100 | **Iron Meteorites**: Fragments from the metallic cores of large, molten asteroids; extremely strong. | [1], [2] |
+| **EUC** | $1.87$ | 20-250 | **Eucrite**: A stony type from the crust of 4 Vesta, similar to volcanic rock (basalt); very strong. | [1], [2] |
+| **DIO** | $2.06$ | 20-250 | **Diogenite**: A stony type from deep within the crust of 4 Vesta; also very strong. | [1], [2] |
+| **HOW** | $1.89$ | 20-150 | **Howardite**: A stony type from the surface of asteroid 4 Vesta; a mix of Eucrite and Diogenite. | [1], [2] |
+| **JAB / IIAB** | $4.46–4.72$ | 100-500 | **Iron Meteorites**: Fragments from the metallic cores of large, molten asteroids; extremely strong. | [1], [2] |
 
 ---
 
-### Formulas Used in This Table
+### Formulas and Reasoning Used in This Table
 
 #### Calculating Bulk Density
 
@@ -92,6 +92,22 @@ $$P_{ram} = \rho_{air} v^2$$
 -   **$v$**: The velocity of the asteroid.
 
 An asteroid breaks apart when **$P_{ram}$ > Aerodynamic Strength**.
+
+### Reasoning for Strength Ranges
+
+The reason observational data often gives a minimum value (e.g., "> 20 MPa") is due to a selection bias: these meteoroids are so strong that they typically survive their passage through the atmosphere without breaking up. Scientists can only measure the peak aerodynamic pressure they endured before landing, so their true strength is known to be *at least* that high, but the upper limit remains unmeasured from atmospheric entry alone. The ranges below are established by comparing their composition to analogous materials.
+
+#### **Eucrites & Diogenites (20–250 MPa)**
+-   **Observational Lower Limit**: Both Eucrites and Diogenites are strong, crystalline rocks from the asteroid Vesta that have been observed to withstand at least **20 MPa** of pressure during atmospheric entry.
+-   **Material Analogue**: Eucrites are basaltic rocks, compositionally similar to volcanic basalt on Earth. The compressive strength of terrestrial basalt typically falls between **100 and 250 MPa**. This provides a reasonable upper bound for their ultimate failure strength.
+
+#### **Howardites (20–150 MPa)**
+-   **Composition**: Howardites are a mix of Eucrite and Diogenite fragments that have been fused together into a single rock by impacts on Vesta's surface (a "breccia").
+-   **Points of Weakness**: While the individual fragments are very strong, the cement binding them together is a structural weakness. Because of this, the overall strength of a Howardite is likely lower than that of a pure, solid Eucrite or Diogenite.
+
+#### **Iron Meteorites (> 100 MPa, typically 300-500 MPa)**
+-   **Observational Lower Limit**: The "> 100 MPa" value is a very conservative lower limit based on the immense pressures they have been observed to survive.
+-   **Material Analogue**: Iron meteorites are made of extremely tough iron-nickel alloys (kamacite and taenite). The ultimate tensile and compressive strength of these materials is comparable to high-grade structural steel, often in the range of **300 to 500 MPa**. They are the strongest natural objects known to enter Earth's atmosphere.
 
 ---
 
