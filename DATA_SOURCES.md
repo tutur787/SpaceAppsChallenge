@@ -46,31 +46,23 @@ This file links the data requirements outlined in Mathias et al. (2017) — the 
 
 Replace the synthetic elements with the cited datasets (USGS DEMs, WorldPop/HAZUS rasters, SMASS taxonomy tables, etc.) before using the tool for decision support.
 
-# NEO columns
+## NeoWs Field Coverage
 
-# NEO Columns
+The NeoWs feed returns a rich set of attributes for each close-approach record. The table below marks which columns the API exposes and whether the current MVP ingests them.
 
-id  
-neo_reference_id  
-name  
-absolute_magnitude_h  
-estimated_diameter_min_km  
-estimated_diameter_max_km  
-estimated_diameter_min_m  
-estimated_diameter_max_m  
-estimated_diameter_min_miles  
-estimated_diameter_max_miles  
-estimated_diameter_min_ft  
-estimated_diameter_max_ft  
-is_potentially_hazardous_asteroid  
-close_approach_date  
-close_approach_date_full  
-epoch_date_close_approach  
-relative_velocity_kps  
-relative_velocity_kph  
-relative_velocity_mph  
-miss_distance_au  
-miss_distance_lunar  
-miss_distance_km  
-miss_distance_miles  
-orbiting_body  
+| NeoWs field | Description | Present in API response | Used in MVP? | Notes / next steps |
+| --- | --- | --- | --- | --- |
+| `id`, `neo_reference_id` | Internal identifiers | ✔︎ | ✘ | Store when we add caching or detail drill-down |
+| `name` | Asteroid designation | ✔︎ | ✔︎ | Displayed in optional NEO table |
+| `absolute_magnitude_h` | H-magnitude (brightness proxy for size) | ✔︎ | ✘ | Needed to derive diameter when only H is known |
+| `estimated_diameter_min_km`, `estimated_diameter_max_km` (plus miles/ft variants) | Diameter estimates per unit | ✔︎ | ✘ | We currently read only the meter values; convert on demand |
+| `estimated_diameter_min_m`, `estimated_diameter_max_m` | Diameter estimates (meters) | ✔︎ | ✔︎ | Used for context list |
+| `is_potentially_hazardous_asteroid` | Hazard flag | ✔︎ | ✔︎ | Surface-level risk indicator |
+| `close_approach_date`, `close_approach_date_full`, `epoch_date_close_approach` | Timing of approach | ✔︎ | ✘ | Add to timeline visualisation |
+| `relative_velocity` (`kilometers_per_second`, `kilometers_per_hour`, `miles_per_hour`) | Encounter speed | ✔︎ | ✔︎ (`kilometers_per_second`) | Other units available if needed |
+| `miss_distance` (`kilometers`, `lunar`, `astronomical`, `miles`) | Miss distance in multiple units | ✔︎ | ✔︎ (`kilometers`) | Lunar/AU handy for outreach graphics |
+| `orbiting_body` | Body the asteroid is passing | ✔︎ | ✘ | Useful for multi-body context |
+| `links` (`self`, etc.) | Hyperlinks to detail endpoints | ✔︎ | ✘ | Use for deep-dive panels |
+| `orbital_data` (present in lookup endpoint) | Keplerian elements, ephemeris data | ✔︎ (separate endpoint) | ✘ | Required for orbit propagation view |
+
+To expand the MVP, extend `fetch_today_neos()` to persist the unused columns (e.g., `absolute_magnitude_h`, `close_approach_date`, `orbiting_body`) and surface them in the UI or downstream calculations (size-from-H conversions, encounter timelines, orbital tracks).
