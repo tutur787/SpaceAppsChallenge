@@ -1,6 +1,6 @@
 # app.py
 # Streamlit MVP for an educational asteroid-impact dashboard
-# -----------------------------------------------------------
+# ----------------------------------------------------------- 
 # Features
 # - Explore tab: sliders for asteroid size, velocity, density, angle
 # - Map: choose impact location by city preset or lat/lon inputs
@@ -22,6 +22,8 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+
+from src.i18n import t, set_lang, get_lang, AVAILABLE_LANGS
 
 from src.api.nasa_neo import NeoWsClient, NeoWsError
 from src.data.defaults import (
@@ -62,6 +64,10 @@ SYNTHETIC_POP_DENSITY = {
     "light": 800,
 }
 
+# NOTE: These casualty rates are NOT from the PAIR white paper.
+# Mathias et al. (2017) uses "affected population" (everyone within 4-psi damage radius)
+# without modeling specific casualty rates. These rates are kept for legacy/educational purposes
+# but should NOT be used in PAIR-compliant calculations.
 SYNTHETIC_CASUALTY_RATE = {
     "severe": 0.35,
     "moderate": 0.1,
@@ -111,12 +117,10 @@ def cached_sbdb_payload(designation: str) -> Dict[str, Any]:
 def cached_neo_payload(neo_id: str) -> Dict[str, Any]:
     return fetch_neows_object(neo_id)
 
-
 _DEFAULTS_TRACE_EMITTED = False
 
-
 def print_startup_data_trace(
-    defaults: Dict[str, Any],
+    defaults: Dict[str, Any], 
     control_state: Optional[Dict[str, Any]] = None,
 ) -> None:
     global _DEFAULTS_TRACE_EMITTED
@@ -253,22 +257,22 @@ def gather_ui_control_state() -> Dict[str, Any]:
     """Collect current slider/selectbox inputs for console transparency."""
 
     control_map = [
-        ("Asteroid diameter (m)", "diameter_m"),
-        ("Impact velocity (km/s)", "velocity_km_s"),
-        ("Impact angle (deg)", "angle_deg"),
-        ("Material preset", "material_preset"),
-        ("Bulk density (kg/m³)", "bulk_density"),
-        ("Bulk strength (MPa)", "bulk_strength"),
-        ("City preset", "city_preset"),
-        ("Impact latitude (used)", "impact_lat_used"),
-        ("Impact longitude (used)", "impact_lon_used"),
-        ("Manual latitude entry", "impact_lat_manual"),
-        ("Manual longitude entry", "impact_lon_manual"),
-        ("Monte Carlo samples", "monte_carlo_samples"),
-        ("Deflection Δv (mm/s)", "deflect_delta_v"),
-        ("Deflection lead time (days)", "deflect_lead_days"),
-        ("Deflection bearing (deg)", "deflect_bearing"),
-        ("Daily NEO choice", "neo_pick"),
+        (t("labels.diameter"), "diameter_m"),
+        (t("labels.velocity"), "velocity_km_s"),
+        (t("labels.angle"), "angle_deg"),
+        (t("labels.material"), "material_preset"),
+        (t("labels.density"), "bulk_density"),
+        (t("labels.strength"), "bulk_strength"),
+        (t("app.city_preset"), "city_preset"),
+        (t("snapshot.impact_lat_used"), "impact_lat_used"),
+        (t("snapshot.impact_lon_used"), "impact_lon_used"),
+        (t("labels.latitude"), "impact_lat_manual"),
+        (t("labels.longitude"), "impact_lon_manual"),
+        (t("app.samples_label"), "monte_carlo_samples"),
+        (t("deflect.delta_v_label"), "deflect_delta_v"),
+        (t("deflect.lead_time_label"), "deflect_lead_days"),
+        (t("deflect.bearing_label"), "deflect_bearing"),
+        (t("app.neo_pick_prompt"), "neo_pick"),
     ]
 
     state: Dict[str, Any] = {}
@@ -633,12 +637,23 @@ def fetch_today_neos() -> pd.DataFrame:
 # UI
 # ----------------------------
 st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
+
+# Language selector (default to English). Stored in session_state to persist across interactions.
+if "lang" not in st.session_state:
+    # prefer query param if present
+    q = st.experimental_get_query_params().get("lang", [None])[0]
+    if q:
+        try:
+            set_lang(q)
+            st.session_state["lang"] = q
+        except Exception:
+            set_lang("en")
+            st.session_state["lang"] = "en"
+    else:
+        set_lang("en")
+        st.session_state["lang"] = "en"
+
 st.title("🛰️ Impactor-2025: Learn & Simulate")
-st.caption("An educational dashboard to explore asteroid impacts, built for a hackathon.")
-
-ensure_session_defaults()
-defaults_meta = st.session_state.get("defaults_metadata", {})
-
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -648,15 +663,14 @@ if "widget_overrides" in st.session_state:
 
 
 # Tabs
-exp_tab, defend_tab, learn_tab = st.tabs(["Explore", "Defend Earth", "Learn"])
+exp_tab, defend_tab, learn_tab = st.tabs([t("app.explore") or t("app.explore") or t("explore"), t("app.defend_earth") or t("defend_earth"), t("app.learn_label") or t("learn_label")])
 
 with exp_tab:
-    st.subheader("Choose impact parameters")
+    st.subheader(t("app.choose_params"))
     if defaults_meta:
         sbdb_name = defaults_meta.get("sbdb_fullname") or DEFAULT_SBDB_ID
         st.caption(
-            f"Defaults loaded from NASA NeoWs + JPL SBDB for **{sbdb_name}**"
-            f" (source: {defaults_meta.get('provenance', 'NeoWs/SBDB')})."
+            t("app.caption")
         )
         field_sources = defaults_meta.get("field_sources") or {}
 
@@ -668,11 +682,11 @@ with exp_tab:
             return str(value)
 
         metric_specs = [
-            ("Abs magnitude (H)", "absolute_magnitude_h", 3),
-            ("Geom. albedo", "albedo", 3),
-            ("Rotation period (hr)", "rotation_period_hr", 3),
-            ("Miss distance (km)", "miss_distance_km", 4),
-            ("Spectral class", "taxonomy", 3),
+            (t("labels.abs_magnitude") or "Abs magnitude (H)", "absolute_magnitude_h", 3),
+            (t("app.geom_albedo"), "albedo", 3),
+            (t("app.rotation_period_hr"), "rotation_period_hr", 3),
+            (t("app.miss_distance_km"), "miss_distance_km", 4),
+            (t("app.spectral_class"), "taxonomy", 3),
         ]
         metric_cols = st.columns(len(metric_specs))
         for col, (label, key, digits) in zip(metric_cols, metric_specs):
@@ -682,84 +696,84 @@ with exp_tab:
             else:
                 col.metric(label, _format_metric(display_value, digits))
 
-        with st.expander("White paper inputs from NASA/SBDB", expanded=False):
-            table_specs = [
-                ("Absolute magnitude (H)", "absolute_magnitude_h", "mag"),
-                ("Diameter max (m)", "diameter_m", "m"),
-                ("Geometric albedo", "albedo", ""),
-                ("Bulk density (kg/m^3)", "density", "kg/m³"),
-                ("Rotation period (hr)", "rotation_period_hr", "hr"),
-                ("Spectral class", "taxonomy", ""),
-                ("Relative velocity (km/s)", "velocity_km_s", "km/s"),
-                ("Miss distance (km)", "miss_distance_km", "km"),
-                ("Semi-major axis a (AU)", "semi_major_axis_au", "AU"),
-                ("Eccentricity e", "eccentricity", ""),
-                ("Inclination i (deg)", "inclination_deg", "°"),
-                ("Argument of periapsis ω (deg)", "argument_of_periapsis_deg", "°"),
-                ("Longitude ascending node Ω (deg)", "ascending_node_longitude_deg", "°"),
-            ]
 
-            def _format_table_value(raw_value: Any) -> str:
-                if raw_value is None or raw_value == "":
-                    return "—"
-                if isinstance(raw_value, int):
-                    return f"{raw_value:,}"
-                if isinstance(raw_value, float):
-                    formatted = f"{raw_value:,.6g}"
-                    if formatted.startswith("."):
-                        formatted = "0" + formatted
-                    elif formatted.startswith("-."):
-                        formatted = formatted.replace("-.", "-0.", 1)
-                    return formatted
-                return str(raw_value)
+        with st.expander(t("expanders.white_paper_inputs"), expanded=False):
+                table_specs = [
+                    ("Absolute magnitude (H)", "absolute_magnitude_h", "mag"),
+                    ("Diameter max (m)", "diameter_m", "m"),
+                    (t("app.geom_albedo"), "albedo", ""),
+                    ("Bulk density (kg/m^3)", "density", "kg/m³"),
+                    (t("app.rotation_period_hr"), "rotation_period_hr", "hr"),
+                    (t("app.spectral_class"), "taxonomy", ""),
+                    ("Relative velocity (km/s)", "velocity_km_s", "km/s"),
+                    (t("app.miss_distance_km"), "miss_distance_km", "km"),
+                    ("Semi-major axis a (AU)", "semi_major_axis_au", "AU"),
+                    (t("labels.absolute_magnitude") or "Absolute magnitude (H)", "absolute_magnitude_h", "mag"),
+                    ("Eccentricity e", "eccentricity", ""),
+                    ("Inclination i (deg)", "inclination_deg", "°"),
+                    ("Argument of periapsis ω (deg)", "argument_of_periapsis_deg", "°"),
+                    ("Longitude ascending node Ω (deg)", "ascending_node_longitude_deg", "°"),
+                ]
 
-            rows = []
-            for label, key, unit in table_specs:
-                raw_value = defaults_meta.get(key)
-                rows.append(
-                    {
-                        "Parameter": label,
-                        "Value": _format_table_value(raw_value),
-                        "Units": unit,
-                        "Source": field_sources.get(key, defaults_meta.get("provenance", "—")),
-                    }
-                )
+                def _format_table_value(raw_value: Any) -> str:
+                    if raw_value is None or raw_value == "":
+                        return "—"
+                    if isinstance(raw_value, int):
+                        return f"{raw_value:,}"
+                    if isinstance(raw_value, float):
+                        formatted = f"{raw_value:,.6g}"
+                        if formatted.startswith("."):
+                            formatted = "0" + formatted
+                        elif formatted.startswith("-."):
+                            formatted = formatted.replace("-.", "-0.", 1)
+                        return formatted
+                    return str(raw_value)
 
-            st.dataframe(pd.DataFrame(rows), width="stretch")
+                rows = []
+                for label, key, unit in table_specs:
+                    raw_value = defaults_meta.get(key)
+                    rows.append(
+                        {
+                            "Parameter": label,
+                            "Value": _format_table_value(raw_value),
+                            "Units": unit,
+                            "Source": field_sources.get(key, defaults_meta.get("provenance", "—")),
+                        }
+                    )
+
+                # use_container_width is the supported way to make the dataframe fill the layout
+                st.dataframe(pd.DataFrame(rows), use_container_width=True)
     primary_cols = st.columns(4)
     with primary_cols[0]:
         diameter_default = int(st.session_state.get("diameter_m", 150))
-        diameter_kwargs = {
-            "min_value": 10,
-            "max_value": 2000,
-            "step": 10,
-            "key": "diameter_m",
-        }
-        if "diameter_m" not in st.session_state:
-            diameter_kwargs["value"] = diameter_default
-        diameter_m = st.slider("Asteroid diameter (m)", **diameter_kwargs)
+        diameter_m = st.slider(
+            "Asteroid diameter (m)",
+            min_value=10,
+            max_value=2000,
+            value=diameter_default,
+            step=10,
+            key="diameter_m",
+        )
     with primary_cols[1]:
         velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
-        velocity_kwargs = {
-            "min_value": 5.0,
-            "max_value": 70.0,
-            "step": 0.5,
-            "key": "velocity_km_s",
-        }
-        if "velocity_km_s" not in st.session_state:
-            velocity_kwargs["value"] = velocity_default
-        velocity = st.slider("Velocity at impact (km/s)", **velocity_kwargs)
+        velocity = st.slider(
+            "Velocity at impact (km/s)",
+            min_value=5.0,
+            max_value=70.0,
+            value=velocity_default,
+            step=0.5,
+            key="velocity_km_s",
+        )
     with primary_cols[2]:
         angle_default = int(st.session_state.get("angle_deg", 45))
-        angle_kwargs = {
-            "min_value": 10,
-            "max_value": 90,
-            "step": 1,
-            "key": "angle_deg",
-        }
-        if "angle_deg" not in st.session_state:
-            angle_kwargs["value"] = angle_default
-        angle = st.slider("Impact angle (°)", **angle_kwargs)
+        angle = st.slider(
+            "Impact angle (°)",
+            min_value=10,
+            max_value=90,
+            value=angle_default,
+            step=1,
+            key="angle_deg",
+        )
     with primary_cols[3]:
         material_options = list(MATERIAL_PRESETS.keys())
         default_material = st.session_state.get("material_preset", defaults_meta.get("material", material_options[1]))
@@ -768,7 +782,7 @@ with exp_tab:
         except ValueError:
             material_index = 1
         material = st.selectbox(
-            "Material preset",
+            t("labels.material"),
             material_options,
             index=material_index,
             key="material_preset",
@@ -779,45 +793,35 @@ with exp_tab:
 
     secondary_cols = st.columns(2)
     with secondary_cols[0]:
-        density_default = float(st.session_state.get("bulk_density", preset_density))
-        density_kwargs = {
-            "min_value": 300,
-            "max_value": 9000,
-            "step": 50,
-            "key": "bulk_density",
-        }
-        if "bulk_density" not in st.session_state:
-            density_kwargs["value"] = int(round(density_default))
-        density = st.slider("Bulk density (kg/m³)", **density_kwargs)
-        provenance = defaults_meta.get("provenance")
-        if provenance:
-            st.caption(f"Default from {provenance}: {density_default:,.0f} kg/m³")
-        else:
-            st.caption(f"Preset density for {material}: {preset_density} kg/m³")
+        density_fallback = max(
+            float(preset_density),
+            float(get_slider_spec("bulk_density").min_value),
+        )
+        density_spec, density_kwargs = prepare_slider_args(
+            "bulk_density",
+            key_override=f"density_{material}",
+            fallback_value=density_fallback,
+            fallback_label="material_preset",
+        )
     with secondary_cols[1]:
-        strength_default = float(st.session_state.get("bulk_strength", preset_strength))
-        strength_kwargs = {
-            "min_value": 0.1,
-            "max_value": 300.0,
-            "step": 0.1,
-            "key": "bulk_strength",
-        }
-        if "bulk_strength" not in st.session_state:
-            strength_kwargs["value"] = float(strength_default)
-        strength_mpa = st.slider("Bulk compressive strength (MPa)", **strength_kwargs)
-        st.caption("Adjust to emulate cohesive strength used in PAIR entry modeling.")
+        strength_spec, strength_kwargs = prepare_slider_args(
+            "strength_mpa",
+            key_override=f"strength_{material}",
+            fallback_value=float(preset_strength),
+            fallback_label="material_preset",
+        )
 
-    st.markdown("**Where does it hit?** Pick a city or enter coordinates.")
+    st.markdown("**" + t("app.where_hit") + "**")
     c1, c2, c3 = st.columns([2,1,1])
     with c1:
-        preset = st.selectbox("City preset", list(CITY_PRESETS.keys()), key="city_preset")
+        preset = st.selectbox(t("app.city_preset"), list(CITY_PRESETS.keys()), key="city_preset")
     if preset and CITY_PRESETS[preset][0] is not None:
         lat, lon = CITY_PRESETS[preset]
     else:
         with c2:
-            lat = st.number_input("Latitude", value=29.7604, format="%.4f", key="impact_lat_manual")
+            lat = st.number_input(t("labels.latitude"), value=29.7604, format="%.4f", key="impact_lat_manual")
         with c3:
-            lon = st.number_input("Longitude", value=-95.3698, format="%.4f", key="impact_lon_manual")
+            lon = st.number_input(t("labels.longitude"), value=-95.3698, format="%.4f", key="impact_lon_manual")
     # Choose densities based on city selection
     if preset in CITY_RING_DENSITY:
         current_ring_densities = CITY_RING_DENSITY[preset]
@@ -855,56 +859,69 @@ with exp_tab:
     exposure = estimate_population_impacts(r_severe, r_mod, r_light, ring_densities=current_ring_densities)
     Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
 
-    st.markdown("### Results")
+    st.markdown("### " + t("app.results"))
     cols = st.columns(4)
-    cols[0].metric("Mass", f"{m:,.0f} kg")
-    cols[1].metric("Kinetic energy", f"{E_mt:,.2f} Mt TNT")
-    cols[2].metric("Breakup altitude", f"{breakup_alt_km:.1f} km")
-    cols[3].metric("Ground-coupled energy", f"{E_mt * ground_fraction:.2f} Mt")
+    cols[0].metric(t("metrics.mass"), f"{m:,.0f} kg")
+    cols[1].metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
+    cols[2].metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
+    cols[3].metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
 
-    crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else "Airburst"
+    crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else t("app.airburst")
     cols2 = st.columns(4)
-    cols2[0].metric("Crater diameter (final)", crater_display)
-    cols2[1].metric("Severe radius (12 psi)", f"{r_severe:.2f} km")
-    cols2[2].metric("Moderate radius (4 psi)", f"{r_mod:.2f} km")
-    cols2[3].metric("Light radius (1 psi)", f"{r_light:.2f} km")
+    cols2[0].metric(t("metrics.crater"), crater_display)
+    cols2[1].metric(t("metrics.severe_radius"), f"{r_severe:.2f} km")
+    cols2[2].metric(t("metrics.moderate_radius"), f"{r_mod:.2f} km")
+    cols2[3].metric(t("metrics.light_radius"), f"{r_light:.2f} km")
 
     cols3 = st.columns(3)
-    cols3[0].metric("Population exposed", f"{exposure.get('total', 0.0):,.0f}")
-    cols3[1].metric("Estimated casualties", f"{exposure.get('casualties', 0.0):,.0f}")
+    # PAIR uses 4-psi damage radius as the primary metric (white paper Section 2.3, line 236)
+    # 4-psi is a full circle, not a ring, so we need to calculate the total area within r_mod
+    pair_damage_area_km2 = math.pi * max(r_mod, 0.0) ** 2
+    # Use the city/fallback density for the 4-psi region
+    if preset in CITY_RING_DENSITY:
+        pair_density = CITY_RING_DENSITY[preset].get("moderate", DEFAULT_RING_DENSITY["moderate"])
+    else:
+        pair_density = DEFAULT_RING_DENSITY["moderate"]
+    pair_affected_population_4psi = pair_damage_area_km2 * pair_density
+
+    cols3[0].metric("Population in 4-psi zone", f"{pair_affected_population_4psi:,.0f}")
+    cols3[1].metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
     cols3[2].metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
 
-    st.caption(
-        "Population estimates rely on documented synthetic density rings and fall back to the crater footprint when blast rings vanish; replace with real datasets when available."
-    )
+    with st.expander("Damage assessment details"):
+        # PAIR uses 4-psi as the primary damage threshold (full circle, not a ring)
+        pair_damage_radius_km = r_mod  # 4-psi radius
+        pair_damage_area_km2 = math.pi * max(pair_damage_radius_km, 0.0) ** 2
+        # Population = full area within 4-psi × density
+        pair_affected_pop = pair_damage_area_km2 * pair_density
 
-    with st.expander("Synthetic exposure breakdown"):
+        st.metric("Damage radius (4-psi)", f"{pair_damage_radius_km:.2f} km")
+        st.metric("Damage area (full circle)", f"{pair_damage_area_km2:,.1f} km²")
+        st.metric("Population", f"{pair_affected_pop:,.0f} people")
+
+        # Show all three rings for reference/visualization
+        st.markdown("**Blast overpressure rings:**")
         exposure_rows = []
-        for ring, radius in [("severe", r_severe), ("moderate", r_mod), ("light", r_light)]:
+        for ring, radius, psi in [("severe", r_severe, 12), ("moderate", r_mod, 4), ("light", r_light, 1)]:
             area = math.pi * max(radius, 0.0) ** 2
             pop = exposure.get(ring, 0.0)
-            rate = SYNTHETIC_CASUALTY_RATE.get(ring, 0.0)
             exposure_rows.append(
                 {
                     "ring": ring,
+                    "overpressure_psi": psi,
                     "radius_km": radius,
                     "area_km2": area,
                     "population": pop,
-                    "casualty_rate": rate,
-                    "expected_casualties": pop * rate,
                 }
             )
         st.dataframe(pd.DataFrame(exposure_rows))
 
-    with st.expander("PAIR-inspired probabilistic scenarios"):
-        st.write(
-            "Sample uncertain properties (diameter, density, angle, strength) using the PAIR Monte Carlo approach to explore outcome distributions."
-        )
-        samples = st.slider("Number of Monte Carlo samples", 100, 1000, 300, step=50, key="monte_carlo_samples")
+    with st.expander("Probabilistic scenarios"):
+        samples = st.slider("Number of Monte Carlo samples", 100, 1000, 300, step=50)
         if st.button("Run simulation", key="run_pair_button"):
             sim_df = run_pair_simulation(samples, diameter_m, density, velocity, angle, strength_mpa)
             if sim_df.empty:
-                st.warning("Simulation returned no scenarios.")
+                st.warning(t("app.simulation_no_scenarios"))
             else:
                 quantiles = sim_df[[
                     "energy_mt",
@@ -916,46 +933,57 @@ with exp_tab:
                     "casualties",
                 ]].quantile([0.5, 0.9]).T
                 quantiles.columns = ["p50", "p90"]
-                st.subheader("Key outcome quantiles")
+                st.subheader(t("app.key_outcome_quantiles") if t("app.key_outcome_quantiles", default=None) else "Key outcome quantiles")
                 st.dataframe(quantiles)
 
                 crater_probability = float((sim_df["crater_km"] > 0).mean())
-                st.metric("Probability of crater formation", f"{crater_probability*100:.1f}%")
+                st.metric(t("metrics.probability_crater"), f"{crater_probability*100:.1f}%")
 
-                st.caption(
-                    "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Replace assumed distributions with mission-specific priors as data become available."
-                )
+    # Map visualization with crater and blast damage zones
+    st.markdown("### Impact Visualization Map")
 
-    # Map visualization with concentric circles
-    st.markdown("### Map")
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
-    def circle_layer(radius_km, color, opacity=100):
+    def circle_layer(radius_km, color, name=""):
         return pdk.Layer(
             "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [name]}),
             get_position="[lon, lat]",
             get_radius=radius_km * 1000,
             radius_min_pixels=1,
             radius_max_pixels=10000,
             get_fill_color=color,
-            pickable=False,
+            pickable=True,
             stroked=False,
             filled=True,
         )
 
     rings = [
-        circle_layer(r_light, [255, 165, 0, 60]),
-        circle_layer(r_mod, [255, 0, 0, 80]),
-        circle_layer(r_severe, [139, 0, 0, 120]),
+        # Blast damage zones (from outer to inner)
+        circle_layer(r_light, [255, 165, 0, 60], f"1-psi zone: {r_light:.1f} km"),
+        circle_layer(r_mod, [255, 0, 0, 80], f"4-psi zone (PAIR): {r_mod:.1f} km"),
+        circle_layer(r_severe, [139, 0, 0, 120], f"12-psi zone: {r_severe:.1f} km"),
+        # Crater
         pdk.Layer(
             "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [f"Crater: {crater_km:.2f} km diameter"]}),
             get_position="[lon, lat]",
-            get_radius=5000,
-            get_fill_color=[0, 0, 0, 180],
-            get_line_color=[255, 255, 255, 220],
-            line_width_min_pixels=1,
+            get_radius=crater_km * 500,  # crater radius in meters
+            get_fill_color=[50, 50, 50, 220],
+            get_line_color=[255, 255, 255, 255],
+            line_width_min_pixels=2,
+            pickable=True,
+        ),
+        # Impact point marker
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": ["Impact Point"]}),
+            get_position="[lon, lat]",
+            get_radius=1000,
+            get_fill_color=[255, 255, 0, 255],
+            get_line_color=[255, 0, 0, 255],
+            line_width_min_pixels=2,
+            pickable=True,
         ),
     ]
 
@@ -972,11 +1000,21 @@ with exp_tab:
 
     st.pydeck_chart(deck)
 
+    # Map legend
+    st.markdown("""
+    **Map Legend:**
+    - 🟡 **Yellow dot**: Impact point
+    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
+    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
+    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
+    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
+    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
+
     # --- PATCH 2: make NEOs usable + educational summaries ---
     with st.expander("Use today's NASA NEOs as inputs"):
-        df = fetch_today_neos()
+        df = neo_df.copy()
         if df.empty:
-            st.info("Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
+            st.info(t("app.neo_fetch_unavailable") or "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
         else:
             # Derive average diameter and lunar-distance multiples for context
             df = df.copy()
@@ -987,116 +1025,71 @@ with exp_tab:
             # Short, readable view
             view_cols = ["name", "diameter_avg_m", "velocity_km_s", "miss_distance_km", "miss_distance_moon_x", "hazardous"]
             st.dataframe(df[view_cols].rename(columns={
-                "diameter_avg_m": "diameter_avg_m (m)",
-                "miss_distance_km": "miss_distance (km)",
-                "miss_distance_moon_x": "miss distance (× Moon)"
+                "diameter_avg_m": t("neo.cols.diameter_avg_m") or "diameter_avg_m (m)",
+                "miss_distance_km": t("neo.cols.miss_distance_km") or "miss_distance (km)",
+                "miss_distance_moon_x": t("neo.cols.miss_distance_moon_x") or "miss distance (× Moon)"
             }))
 
             # Pick one and push into the simulator
+            neo_options = ["— use custom values —"] + df["name"].tolist()
             choice = st.selectbox(
                 "Pick an asteroid to simulate (what-if it hit):",
-                options=df["name"].tolist(),
-                key="neo_pick",
+                options=neo_options,
+                key="neo_choice"
             )
             row = df.loc[df["name"] == choice].iloc[0]
 
-            st.caption(
-                f"Selected **{row['name']}** — avg diameter ≈ {row['diameter_avg_m']:.1f} m, "
-                f"speed ≈ {row['velocity_km_s']:.2f} km/s, "
-                f"miss distance ≈ {row['miss_distance_km']:.0f} km (~{row['miss_distance_moon_x']:.1f}× Moon)."
-            )
+            if choice != "— use custom values —":
+                row = df.loc[df["name"] == choice].iloc[0]
 
-            colA, colB = st.columns(2)
-            with colA:
-                if st.button("Use this NEO in the simulator"):
-                    diameter_value = row["diameter_avg_m"]
-                    if diameter_value is None or pd.isna(diameter_value):
-                        diameter_value = st.session_state["diameter_m"]
-                    diameter_value = int(np.clip(diameter_value, 10, 2000))
 
-                    velocity_value = row["velocity_km_s"]
-                    if velocity_value is None or pd.isna(velocity_value):
-                        velocity_value = st.session_state["velocity_km_s"]
-                    velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
+                # Automatically update sliders when selection changes
+                diameter_value = row["diameter_avg_m"]
+                if diameter_value is None or pd.isna(diameter_value):
+                    diameter_value = st.session_state.get("diameter_m", 150)
+                diameter_value = int(np.clip(diameter_value, 10, 2000))
 
-                    sbdb_density = None
-                    sbdb_strength = None
-                    sbdb_material = st.session_state.get("material_preset", "Stony (ordinary chondrite)")
-                    sbdb_provenance = None
-                    sbdb_taxonomy = None
-                    sbdb_fullname = None
-                    designation = row.get("designation") or row.get("name")
-                    if designation:
-                        try:
-                            sbdb_payload = cached_sbdb_payload(designation)
-                            phys = extract_sbdb_phys(sbdb_payload)
-                            sbdb_taxonomy = phys.get("spectral_class")
-                            sbdb_material = material_from_taxonomy(sbdb_taxonomy)
-                            sbdb_density, sbdb_strength, sbdb_provenance = resolve_density_strength(
-                                phys.get("density_kg_m3"),
-                                sbdb_taxonomy,
-                            )
-                            sbdb_fullname = (
-                                sbdb_payload.get("object", {}).get("fullname")
-                                or designation
-                            )
-                        except SBDBError as exc:
-                            st.warning(f"SBDB lookup failed: {exc}")
+                velocity_value = row["velocity_km_s"]
+                if velocity_value is None or pd.isna(velocity_value):
+                    velocity_value = st.session_state.get("velocity_km_s", 18.0)
+                velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
 
-                    if sbdb_density is None:
-                        sbdb_density = st.session_state.get("bulk_density")
-                    if sbdb_strength is None:
-                        sbdb_strength = st.session_state.get("bulk_strength")
-
+                # Check if values need updating
+                if (st.session_state.get("diameter_m") != diameter_value or
+                    st.session_state.get("velocity_km_s") != velocity_value):
                     override_values = {
                         "diameter_m": diameter_value,
                         "velocity_km_s": velocity_value,
-                        # Reset to a representative entry angle for clarity when swapping asteroids
                         "angle_deg": 45,
-                        "bulk_density": float(sbdb_density) if sbdb_density is not None else st.session_state.get("bulk_density", float(MATERIAL_PRESETS[sbdb_material]["density"])),
-                        "bulk_strength": float(sbdb_strength) if sbdb_strength is not None else st.session_state.get("bulk_strength", float(MATERIAL_PRESETS[sbdb_material]["strength_mpa"])),
-                        "material_preset": sbdb_material,
                     }
                     st.session_state["widget_overrides"] = override_values
-                    st.session_state["defaults_metadata"] = {
-                        "neo_name": row.get("name"),
-                        "neo_designation": row.get("designation"),
-                        "sbdb_fullname": sbdb_fullname or row.get("name"),
-                        "material": sbdb_material,
-                        "density": override_values["bulk_density"],
-                        "strength_mpa": override_values["bulk_strength"],
-                        "provenance": sbdb_provenance or "SBDB/NeoWs selection",
-                        "taxonomy": sbdb_taxonomy,
-                    }
                     st.rerun()
-            with colB:
-                # A quick educational “scale” card
+
+                # Preview metric
                 mass = asteroid_mass_kg(row["diameter_avg_m"], density)
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
-                st.metric("What-if energy (preview)", f"{E_mt_preview:,.2f} Mt TNT")
-                st.caption("Preview assumes current density/material selection.")
+                st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
 
 
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
-    st.write("Toy model: apply a small velocity change (Δv) some days before arrival and see how the nominal impact point shifts.")
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        delta_v_mm_s = st.slider("Δv (mm/s)", 0.0, 5.0, 0.5, step=0.1, key="deflect_delta_v")
+        delta_v_mm_s = st.slider(t("deflect.delta_v_label") or "Δv (mm/s)", 0.0, 5.0, 0.5, step=0.1, key="deflect_delta_v")
     with c2:
-        lead_days = st.slider("Lead time (days)", 0, 3650, 365, step=30, key="deflect_lead_days")
+        lead_days = st.slider(t("deflect.lead_time_label") or "Lead time (days)", 0, 3650, 365, step=30, key="deflect_lead_days")
     with c3:
-        inbound_bearing = st.slider("Inbound bearing (°)", 0, 359, 90, key="deflect_bearing")
+        inbound_bearing = st.slider(t("deflect.bearing_label") or "Inbound bearing (°)", 0, 359, 90, key="deflect_bearing")
 
     # Baseline from Explore tab (share state)
     base_lat, base_lon = lat, lon
     new_lat, new_lon, shift_km = apply_deflection(base_lat, base_lon, delta_v_mm_s, lead_days, inbound_bearing)
 
     cols = st.columns(3)
-    cols[0].metric("Shift on ground (km)", f"{shift_km:.1f}")
-    cols[1].metric("Old impact", f"{base_lat:.3f}, {base_lon:.3f}")
-    cols[2].metric("New impact", f"{new_lat:.3f}, {new_lon:.3f}")
+    cols[0].metric(t("metrics.shift_km", default="Shift on ground (km)"), f"{shift_km:.1f}")
+    cols[1].metric(t("metrics.old_impact", default="Old impact"), f"{base_lat:.3f}, {base_lon:.3f}")
+    cols[2].metric(t("metrics.new_impact", default="New impact"), f"{new_lat:.3f}, {new_lon:.3f}")
 
     view_state = pdk.ViewState(latitude=base_lat, longitude=base_lon, zoom=5, bearing=0, pitch=30)
 
@@ -1141,10 +1134,6 @@ with defend_tab:
         deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *overlays], map_style=None)
 
     st.pydeck_chart(deck)
-
-    st.caption(
-        "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point."
-    )
 
 with learn_tab:
     import streamlit as st
@@ -1459,20 +1448,13 @@ if defaults_meta:
     taxonomy = defaults_meta.get("taxonomy")
     density_val = defaults_meta.get("density")
     st.sidebar.markdown(
-        "**Default object:** {name}<br>"
-        "Source: {src}<br>"
-        "Spectral class: {tax}<br>"
-        "Density: {dens:,.0f} kg/m³".format(
-            name=default_name,
-            src=provenance,
-            tax=taxonomy or "n/a",
-            dens=density_val or 0.0,
-        ),
+        "**" + t("sidebar.default_object", name=default_name) + "**<br>"
+        + t("sidebar.source", src=provenance)
+        + "<br>" + t("sidebar.spectral", tax=taxonomy or "n/a")
+        + "<br>" + t("sidebar.density", dens=density_val or 0.0),
         unsafe_allow_html=True,
     )
-st.sidebar.info(
-    "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data."
-)
+st.sidebar.info(t("sidebar.disclaimer") or "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data.")
 
 control_state_snapshot = gather_ui_control_state()
 print_startup_data_trace(defaults_meta or {}, control_state_snapshot)
