@@ -24,6 +24,7 @@ import streamlit as st
 import pydeck as pdk
 
 from src.i18n import t, set_lang, get_lang, get_language_label, AVAILABLE_LANGS
+from src.background import render_nextjs_background
 
 from src.api.nasa_neo import NeoWsClient, NeoWsError
 from src.data.defaults import (
@@ -710,6 +711,9 @@ def fetch_today_neos() -> pd.DataFrame:
 # UI
 # ----------------------------
 st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
+
+# Render Next.js background
+render_nextjs_background()
 
 # Language selector (default to English). Stored in session_state to persist across interactions.
 if "lang" not in st.session_state:

@@ -1,8 +1,73 @@
+# Python
 .env
-/venv
+venv/
+env/
+ENV/
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 .pytest_cache/
-.DS_Store
 *.log
-/.streamlit/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.coverage
+htmlcov/
+
+# Streamlit
+.streamlit/
+
+# Node.js / Next.js (all instances)
+node_modules/
+.next/
+out/
+embed/
+dist/
+.env*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.turbo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Misc
+gradient-hero/
+*.bak
+*.tmp
+.cache/
