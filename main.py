@@ -735,7 +735,6 @@ defaults_meta = st.session_state.get("defaults_metadata", {})
 # Fetch today's NEOs
 neo_df = fetch_today_neos()
 
-st.sidebar.title(t("sidebar.about_title") or "About this MVP")
 
 if AVAILABLE_LANGS:
     available_codes = AVAILABLE_LANGS
