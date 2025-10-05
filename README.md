@@ -17,7 +17,7 @@ explanations and key equations.
 
 The focus is on **education, clarity, and safety**:
 - Sensitive outputs (like human impacts) are hidden by default, but can
-be toggled for advanced discussion.\
+be toggled for advanced discussion.
 - Confidence badges show which outputs are **high confidence
 (formula-based)** vs **simplified approximations**.
 
@@ -26,15 +26,15 @@ be toggled for advanced discussion.\
 ## ✨ Features
 
 -   **Explore Tab** -- Adjust asteroid properties with sliders and
-    instantly see results.\
+    instantly see results.
 -   **Defend Earth Tab** -- Simulate deflection strategies and compare
-    side-by-side impacts.\
+    side-by-side impacts.
 -   **Learn Tab** -- Age-appropriate explanations of impact science and
-    important equations.\
+    important equations.
 -   **Toggle Confidence Levels** -- Teachers/students can show/hide
-    accuracy badges.\
+    accuracy badges.
 -   **K-12 Friendly Mode** -- Simplified language, no graphic details,
-    clear disclaimers.\
+    clear disclaimers.
 -   **NASA Feeds Integration** -- Pulls in latest asteroid-related news
     and events.
 
@@ -45,17 +45,17 @@ be toggled for advanced discussion.\
 The simulator is inspired by real research including: - The [Earth
 Impact Effects Program (Collins, Melosh, Marcus,
 2005)](https://impact.ese.ic.ac.uk/ImpactEarth/). - Published
-NASA/planetary defense white papers.\
+NASA/planetary defense white papers.
 - Simplified blast scaling laws and seismic energy conversion.
 
-**What's accurate**\
-- Mass and kinetic energy are direct physics calculations.\
+**What's accurate**
+- Mass and kinetic energy are direct physics calculations.
 - Airburst vs crater thresholds are modeled after established
 atmospheric breakup studies.
 
-**What's approximate**\
+**What's approximate**
 - Blast radii and seismic magnitudes are simplified scaling laws (good
-for order-of-magnitude).\
+for order-of-magnitude).
 - Population exposure is based on rough density overlays, not real-time
 demographics.
 
@@ -63,10 +63,10 @@ demographics.
 
 ## 🚀 Tech Stack
 
--   [Python 3.11+](https://www.python.org/)\
--   [Streamlit](https://streamlit.io) -- interactive web app framework\
--   [Pandas](https://pandas.pydata.org/) -- data handling\
--   [Matplotlib](https://matplotlib.org/) -- plotting\
+-   [Python 3.11+](https://www.python.org/)
+-   [Streamlit](https://streamlit.io) -- interactive web app framework
+-   [Pandas](https://pandas.pydata.org/) -- data handling
+-   [Matplotlib](https://matplotlib.org/) -- plotting
 -   [Requests](https://docs.python-requests.org/) -- NASA data feeds
 
 ------------------------------------------------------------------------
@@ -104,8 +104,8 @@ The app will start on `http://localhost:8501`.
 ## 📚 Educational Use
 
 Teachers can use this app to: - Demonstrate the importance of asteroid
-monitoring and planetary defense.\
-- Discuss physics concepts: mass, velocity, energy, scaling laws.\
+monitoring and planetary defense.
+- Discuss physics concepts: mass, velocity, energy, scaling laws.
 - Explore real-world NASA data and connect science to current events.
 
 Built-in safeguards (like toggling sensitive outputs) make it suitable
@@ -115,9 +115,9 @@ for **classroom discussions** at all levels.
 
 ## 🏆 Hackathon Context
 
--   **Challenge:** Planetary Defense & Asteroid Impacts\
--   **Event:** NASA Space Apps Challenge\
--   **Team Name:** `<Your Team Name>`\
+-   **Challenge:** Planetary Defense & Asteroid Impacts
+-   **Event:** NASA Space Apps Challenge
+-   **Team Name:** `<Your Team Name>`
 -   **Year:** 2025
 
 We wanted to make asteroid science accessible and engaging for
@@ -135,18 +135,18 @@ physics.
 ## 🔮 Future Work
 
 -   Integrate with NASA's **real asteroid database (NeoWs API)** for
-    live objects.\
--   Add **3D crater and impact visualizations**.\
--   Expand language support for global classrooms.\
+    live objects.
+-   Add **3D crater and impact visualizations**.
+-   Expand language support for global classrooms.
 -   Improve scaling laws with more precise models.
 
 ------------------------------------------------------------------------
 
 ## 🤝 Acknowledgments
 
--   NASA Space Apps Challenge for the inspiration.\
--   Earth Impact Effects Program for scientific reference.\
--   Open-source libraries: Streamlit, Pandas, Matplotlib.\
+-   NASA Space Apps Challenge for the inspiration.
+-   Earth Impact Effects Program for scientific reference.
+-   Open-source libraries: Streamlit, Pandas, Matplotlib.
 -   All mentors, volunteers, and teammates!
 
 ------------------------------------------------------------------------
