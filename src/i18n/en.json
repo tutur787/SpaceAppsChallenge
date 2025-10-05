@@ -18,10 +18,10 @@
     "pair_sample_explain": "Sample uncertain properties (diameter, density, angle, strength) using the PAIR Monte Carlo approach to explore outcome distributions.",
     "pair_note": "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Replace assumed distributions with mission-specific priors as data become available.",
     "sbdb_lookup_failed": "SBDB lookup failed: {err}",
-  "geom_albedo": "Geom. albedo",
-  "rotation_period_hr": "Rotation period (hr)",
-  "miss_distance_km": "Miss distance (km)",
-  "spectral_class": "Spectral class",
+    "geom_albedo": "Geom. albedo",
+    "rotation_period_hr": "Rotation period (hr)",
+    "miss_distance_km": "Miss distance (km)",
+    "spectral_class": "Spectral class",
     "neo_selected_caption": "Selected **{name}** — avg diameter ≈ {diameter} m, speed ≈ {speed} km/s, miss distance ≈ {miss_km} km (~{moonx}× Moon).",
     "deflection_title": "Try a deflection strategy ✨",
     "use_neo_button": "Use this NEO in the simulator",
@@ -30,8 +30,7 @@
     "neo_pick_prompt": "Pick an asteroid to simulate (what-if it hit):",
     "preview_caption": "Preview assumes current density/material selection.",
     "airburst": "Airburst",
-    "na": "n/a"
-    ,
+    "na": "n/a",
     "explore": "Explore",
     "defend_earth": "Defend Earth",
     "learn_label": "Learn"
@@ -84,8 +83,7 @@
     "strength": "Bulk compressive strength (MPa)",
     "latitude": "Latitude",
     "longitude": "Longitude",
-    "monte_carlo": "Number of Monte Carlo samples"
-    ,
+    "monte_carlo": "Number of Monte Carlo samples",
     "abs_magnitude": "Abs magnitude (H)",
     "absolute_magnitude": "Absolute magnitude (H)"
   },
@@ -103,5 +101,10 @@
     "estimated_casualties": "Estimated casualties",
     "seismic_mw": "Seismic Mw",
     "probability_crater": "Probability of crater formation"
+  },
+  "meta": {
+    "language_code": "en",
+    "language_native": "English",
+    "language_english": "English"
   }
 }

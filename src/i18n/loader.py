@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional
 _ROOT = Path(__file__).parent
 
 _CACHE: Dict[str, Dict[str, str]] = {}
+_LANG_LABEL_CACHE: Dict[str, str] = {}
 
 AVAILABLE_LANGS = []
 _DEFAULT_LANG = "en"
@@ -64,6 +65,33 @@ def get_lang() -> str:
     if not AVAILABLE_LANGS:
         _discover_available()
     return _current_lang
+
+
+def get_language_label(lang: str, *, fallback: Optional[str] = None) -> str:
+    """Return a human-readable label for the given language code.
+
+    Falls back to `meta.language_native`, then `meta.language_english`, then the
+    provided fallback or the language code itself.
+    """
+    if not AVAILABLE_LANGS:
+        _discover_available()
+    if lang in _LANG_LABEL_CACHE:
+        return _LANG_LABEL_CACHE[lang]
+
+    try:
+        data = _load_lang(lang)
+    except FileNotFoundError:
+        label = fallback or lang
+    else:
+        label = (
+            data.get("meta.language_native")
+            or data.get("meta.language_english")
+            or fallback
+            or lang
+        )
+
+    _LANG_LABEL_CACHE[lang] = label
+    return label
 
 
 def t(key: str, default: Optional[str] = None, **kwargs: Any) -> str:

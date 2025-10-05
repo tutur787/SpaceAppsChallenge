@@ -10,28 +10,27 @@
     "city_preset": "Ville",
     "choose_params": "Choisir les paramètres d'impact",
     "about_sidebar": "À propos de ce MVP",
-  "key_outcome_quantiles": "Quantiles des résultats clés",
-  "adjust_strength_caption": "Adjust to emulate cohesive strength used in PAIR entry modeling.",
-  "map": "Map",
-  "default_from_provenance": "Par défaut depuis {prov} : {dens} kg/m³",
-  "preset_density_for": "Densité préréglée pour {material} : {dens} kg/m³",
-  "population_estimates_note": "Les estimations de population reposent sur des anneaux de densité synthétiques documentés et reviennent à l'empreinte du cratère lorsque les anneaux d'explosion disparaissent ; remplacez par des jeux de données réels si disponibles.",
-  "pair_sample_explain": "Échantillonnez des propriétés incertaines (diamètre, densité, angle, résistance) en utilisant l'approche Monte Carlo PAIR pour explorer les distributions de résultats.",
-  "pair_note": "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Remplacez les distributions supposées par des priors spécifiques à la mission si nécessaire.",
-  "sbdb_lookup_failed": "Échec de la recherche SBDB : {err}",
-  "geom_albedo": "Albédo geom.",
-  "rotation_period_hr": "Période de rotation (hr)",
-  "miss_distance_km": "Distance de passage (km)",
-  "spectral_class": "Classe spectrale",
-  "neo_selected_caption": "Sélectionné **{name}** — diamètre moyen ≈ {diameter} m, vitesse ≈ {speed} km/s, distance de passage ≈ {miss_km} km (~{moonx}× Lune).",
-  "deflection_title": "Try a deflection strategy ✨",
+    "key_outcome_quantiles": "Quantiles des résultats clés",
+    "adjust_strength_caption": "Adjust to emulate cohesive strength used in PAIR entry modeling.",
+    "map": "Map",
+    "default_from_provenance": "Par défaut depuis {prov} : {dens} kg/m³",
+    "preset_density_for": "Densité préréglée pour {material} : {dens} kg/m³",
+    "population_estimates_note": "Les estimations de population reposent sur des anneaux de densité synthétiques documentés et reviennent à l'empreinte du cratère lorsque les anneaux d'explosion disparaissent ; remplacez par des jeux de données réels si disponibles.",
+    "pair_sample_explain": "Échantillonnez des propriétés incertaines (diamètre, densité, angle, résistance) en utilisant l'approche Monte Carlo PAIR pour explorer les distributions de résultats.",
+    "pair_note": "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Remplacez les distributions supposées par des priors spécifiques à la mission si nécessaire.",
+    "sbdb_lookup_failed": "Échec de la recherche SBDB : {err}",
+    "geom_albedo": "Albédo geom.",
+    "rotation_period_hr": "Période de rotation (hr)",
+    "miss_distance_km": "Distance de passage (km)",
+    "spectral_class": "Classe spectrale",
+    "neo_selected_caption": "Sélectionné **{name}** — diamètre moyen ≈ {diameter} m, vitesse ≈ {speed} km/s, distance de passage ≈ {miss_km} km (~{moonx}× Lune).",
+    "deflection_title": "Try a deflection strategy ✨",
     "neo_fetch_unavailable": "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.",
     "neo_pick_prompt": "Pick an asteroid to simulate (what-if it hit):",
     "use_neo_button": "Use this NEO in the simulator",
     "preview_caption": "Preview assumes current density/material selection.",
     "airburst": "Airburst",
-    "na": "n/a"
-    ,
+    "na": "n/a",
     "explore": "Explorer",
     "defend_earth": "Défendre la Terre",
     "learn_label": "Apprendre"
@@ -48,8 +47,7 @@
     "source": "Source : {src}",
     "spectral": "Classe spectrale : {tax}",
     "density": "Densité : {dens:,.0f} kg/m³",
-    "disclaimer": "Ceci est une démo éducative. Les chiffres sont approximatifs. Pour des décisions réelles, consultez les modèles et données officiels."
-    ,
+    "disclaimer": "Ceci est une démo éducative. Les chiffres sont approximatifs. Pour des décisions réelles, consultez les modèles et données officiels.",
     "language_label": "Langue"
   },
   "learn": {
@@ -81,17 +79,14 @@
     "strength": "Résistance (MPa)",
     "latitude": "Latitude",
     "longitude": "Longitude",
-    "monte_carlo": "Nombre d'échantillons Monte Carlo"
-    ,
+    "monte_carlo": "Nombre d'échantillons Monte Carlo",
     "abs_magnitude": "Magnitude absolue (H)",
     "absolute_magnitude": "Magnitude absolue (H)"
-  }
-  ,
+  },
   "snapshot": {
     "impact_lat_used": "Impact latitude (used)",
     "impact_lon_used": "Impact longitude (used)"
-  }
-  ,
+  },
   "metrics": {
     "whatif_preview": "What-if energy (preview)",
     "mass": "Masse",
@@ -106,5 +101,10 @@
     "estimated_casualties": "Estimations de victimes",
     "seismic_mw": "Moment sismique Mw",
     "probability_crater": "Probabilité de formation d'un cratère"
+  },
+  "meta": {
+    "language_code": "fr",
+    "language_native": "Français",
+    "language_english": "French"
   }
 }

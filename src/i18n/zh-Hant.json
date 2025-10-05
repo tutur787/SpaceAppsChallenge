@@ -11,28 +11,26 @@
     "choose_params": "選擇撞擊參數",
     "about_sidebar": "關於此 MVP",
     "key_outcome_quantiles": "關鍵結果分位數",
-    "map": "Map",
-    "adjust_strength_caption": "Adjust to emulate cohesive strength used in PAIR entry modeling.",
-  "deflection_title": "Try a deflection strategy ✨",
+    "map": "地圖",
+    "adjust_strength_caption": "調整以模擬 PAIR 進入模型所使用的凝聚強度。",
+    "deflection_title": "嘗試偏轉策略 ✨",
     "default_from_provenance": "預設來源：{prov}，密度 {dens} kg/m³",
     "preset_density_for": "{material} 的預設密度：{dens} kg/m³",
     "population_estimates_note": "人口估計依賴記錄化的合成密度環，若爆炸環消失則退回到撞擊坑面積；可用實際數據層替換。",
     "pair_sample_explain": "使用 PAIR 蒙地卡羅方法對不確定性（直徑、密度、角度、強度）進行抽樣以探索結果分佈。",
     "pair_note": "PAIR = Probabilistic Asteroid Impact Risk（Mathias et al., 2017）。請根據任務使用專門先驗分佈替換本示例。",
     "sbdb_lookup_failed": "SBDB 查詢失敗：{err}",
-  "geom_albedo": "幾何反照率",
-  "rotation_period_hr": "自轉週期 (小時)",
-  "miss_distance_km": "最近距離 (km)",
-  "spectral_class": "光譜類別",
-    "neo_selected_caption": "已選擇 **{name}** — 平均直徑 ≈ {diameter} m，速度 ≈ {speed} km/s，近距離 ≈ {miss_km} km（約 {moonx} 倍月球距離）。"
-    ,
-    "neo_fetch_unavailable": "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.",
-    "neo_pick_prompt": "Pick an asteroid to simulate (what-if it hit):",
-    "use_neo_button": "Use this NEO in the simulator",
-    "preview_caption": "Preview assumes current density/material selection.",
-    "airburst": "Airburst",
-    "na": "n/a"
-    ,
+    "geom_albedo": "幾何反照率",
+    "rotation_period_hr": "自轉週期 (小時)",
+    "miss_distance_km": "最近距離 (km)",
+    "spectral_class": "光譜類別",
+    "neo_selected_caption": "已選擇 **{name}** — 平均直徑 ≈ {diameter} m，速度 ≈ {speed} km/s，近距離 ≈ {miss_km} km（約 {moonx} 倍月球距離）。",
+    "neo_fetch_unavailable": "目前無法取得 NEO（API 限制或離線）。您仍可使用模擬器。",
+    "neo_pick_prompt": "選擇要模擬（假設撞擊）的近地小行星：",
+    "use_neo_button": "在模擬器中使用此 NEO",
+    "preview_caption": "預覽採用目前的密度／材料設定。",
+    "airburst": "空中爆炸",
+    "na": "不適用",
     "explore": "探索",
     "defend_earth": "保衛地球",
     "learn_label": "學習"
@@ -49,8 +47,7 @@
     "source": "來源：{src}",
     "spectral": "光譜類別：{tax}",
     "density": "密度：{dens:,.0f} kg/m³",
-    "disclaimer": "這是一個教育性示範。數值為近似值。如需實務決策，請使用官方模型與資料。"
-    ,
+    "disclaimer": "這是一個教育性示範。數值為近似值。如需實務決策，請使用官方模型與資料。",
     "language_label": "語言"
   },
   "learn": {
@@ -58,23 +55,27 @@
     "learn_text": "**動能** — 運動的能量。我們以 **百萬噸 TNT** 為單位方便比較。\n\n**撞擊坑** — 一個碗狀凹洞。此估算為教學簡化。\n\n**偏移（Δv）** — 提前小幅推動能讓小行星改道，避免撞地球。\n\n**為何簡化？** — 真實研究使用更複雜模型（空爆、碎裂、地形、海洋）。\n我們的目標是先**學習概念**——之後可加入更進階物理。"
   },
   "app_extra": {
-    "where_to_extend": "可擴展之處（黑客松任務）"
+    "where_to_extend": "可延伸項目（黑客松任務）"
   },
   "deflect": {
-    "caption": "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point.",
+    "caption": "偏轉視覺化沿用相同的損害模型；連結空間資料集即可重新計算偏移後的暴露。",
     "delta_v_label": "Δv (mm/s)",
-    "lead_time_label": "Lead time (days)",
-    "bearing_label": "Inbound bearing (°)"
+    "lead_time_label": "提早時間（天）",
+    "bearing_label": "入射方位（°）"
   },
   "neo": {
     "cols": {
-      "diameter_avg_m": "diameter_avg_m (m)",
-      "miss_distance_km": "miss distance (km)",
-      "miss_distance_moon_x": "miss distance (× Moon)"
+      "diameter_avg_m": "平均直徑 (m)",
+      "miss_distance_km": "掠過距離 (km)",
+      "miss_distance_moon_x": "掠過距離 (× 月距)"
     }
   },
+  "snapshot": {
+    "impact_lat_used": "使用的撞擊緯度",
+    "impact_lon_used": "使用的撞擊經度"
+  },
   "metrics": {
-    "whatif_preview": "What-if energy (preview)",
+    "whatif_preview": "假設情境能量（預覽）",
     "mass": "質量",
     "energy": "動能",
     "breakup_alt": "解體高度",
@@ -97,14 +98,13 @@
     "strength": "抗壓強度（MPa）",
     "latitude": "緯度",
     "longitude": "經度",
-    "monte_carlo": "蒙地卡羅抽樣數"
-    ,
+    "monte_carlo": "蒙地卡羅抽樣數",
     "abs_magnitude": "絕對星等 (H)",
     "absolute_magnitude": "絕對星等 (H)"
-  }
-  ,
-  "snapshot": {
-    "impact_lat_used": "Impact latitude (used)",
-    "impact_lon_used": "Impact longitude (used)"
+  },
+  "meta": {
+    "language_code": "zh-Hant",
+    "language_native": "繁體中文",
+    "language_english": "Traditional Chinese"
   }
 }

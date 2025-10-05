@@ -23,7 +23,7 @@ import pandas as pd
 import streamlit as st
 import pydeck as pdk
 
-from src.i18n import t, set_lang, get_lang, AVAILABLE_LANGS
+from src.i18n import t, set_lang, get_lang, get_language_label, AVAILABLE_LANGS
 
 from src.api.nasa_neo import NeoWsClient, NeoWsError
 from src.data.defaults import (
@@ -119,6 +119,15 @@ def cached_neo_payload(neo_id: str) -> Dict[str, Any]:
 
 _DEFAULTS_TRACE_EMITTED = False
 
+
+def _console_print(*args: Any, **kwargs: Any) -> None:
+    """Print to stdout but ignore BrokenPipe errors (Streamlit teardown)."""
+
+    try:
+        print(*args, **kwargs)
+    except BrokenPipeError:  # pragma: no cover - depends on runtime teardown
+        pass
+
 def print_startup_data_trace(
     defaults: Dict[str, Any], 
     control_state: Optional[Dict[str, Any]] = None,
@@ -128,26 +137,26 @@ def print_startup_data_trace(
         return
     _DEFAULTS_TRACE_EMITTED = True
 
-    print("\n=== Dashboard data provenance snapshot ===")
+    _console_print("\n=== Dashboard data provenance snapshot ===")
     neo_label = defaults.get("neo_name") or defaults.get("neo_designation") or DEFAULT_NEO_ID
     sbdb_label = defaults.get("sbdb_fullname") or DEFAULT_SBDB_ID
     provenance = defaults.get("provenance") or defaults.get("source", "synthetic fallback")
     if defaults.get("source_error"):
-        print(f"[warn] data fetch issues: {defaults['source_error']}")
-    print(f"NeoWs target : {neo_label} (ID {DEFAULT_NEO_ID})")
-    print(f"SBDB target  : {sbdb_label}")
-    print(f"Density source: {provenance}")
+        _console_print(f"[warn] data fetch issues: {defaults['source_error']}")
+    _console_print(f"NeoWs target : {neo_label} (ID {DEFAULT_NEO_ID})")
+    _console_print(f"SBDB target  : {sbdb_label}")
+    _console_print(f"Density source: {provenance}")
 
     field_sources = defaults.get("field_sources") or {}
     if field_sources:
-        print("Field-level sources:")
+        _console_print("Field-level sources:")
         for key in sorted(field_sources):
-            print(f"  - {key}: {field_sources[key]}")
+            _console_print(f"  - {key}: {field_sources[key]}")
 
     try:
         from tests.run_data_source_check import PARAMETERS as WHITEPAPER_PARAMS, get_nested
     except ImportError:
-        print("[info] Parameter comparison table unavailable (tests package not importable).")
+        _console_print("[info] Parameter comparison table unavailable (tests package not importable).")
         return
 
     try:
@@ -171,17 +180,17 @@ def print_startup_data_trace(
         sbdb_error = str(exc)
 
     if neo_error:
-        print(f"[warn] NeoWs payload unavailable: {neo_error}")
+        _console_print(f"[warn] NeoWs payload unavailable: {neo_error}")
     if sbdb_error:
-        print(f"[warn] SBDB payload unavailable: {sbdb_error}")
+        _console_print(f"[warn] SBDB payload unavailable: {sbdb_error}")
 
     selected_approach = defaults.get("close_approach_snapshot") or {}
     selected_velocity = defaults.get("velocity_km_s")
     selected_miss = defaults.get("miss_distance_km")
 
     header = f"{ 'Parameter':35} { 'NeoWs value':>18} { 'SBDB value':>18} { 'Dashboard':>18} { 'Source':>18}"
-    print("\n" + header)
-    print("-" * len(header))
+    _console_print("\n" + header)
+    _console_print("-" * len(header))
 
     dashboard_field_map = {
         "Absolute magnitude (H)": defaults.get("absolute_magnitude_h"),
@@ -239,7 +248,7 @@ def print_startup_data_trace(
         if source_key and source_key in field_sources and dashboard_value != "not used":
             source_label = field_sources[source_key]
 
-        print(
+        _console_print(
             f"{spec.label:35} "
             f"{_fmt(neo_value):>18} "
             f"{_fmt(sbdb_value):>18} "
@@ -248,9 +257,9 @@ def print_startup_data_trace(
         )
 
     if control_state:
-        print("\nUI controls at startup:")
+        _console_print("\nUI controls at startup:")
         for label, value in control_state.items():
-            print(f"  - {label}: {value}")
+            _console_print(f"  - {label}: {value}")
 
 
 def gather_ui_control_state() -> Dict[str, Any]:
@@ -641,7 +650,7 @@ st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
 # Language selector (default to English). Stored in session_state to persist across interactions.
 if "lang" not in st.session_state:
     # prefer query param if present
-    q = st.experimental_get_query_params().get("lang", [None])[0]
+    q = st.query_params.get("lang", None)
     if q:
         try:
             set_lang(q)
@@ -654,6 +663,14 @@ if "lang" not in st.session_state:
         st.session_state["lang"] = "en"
 
 st.title("🛰️ Impactor-2025: Learn & Simulate")
+
+# Initialize session defaults
+ensure_session_defaults()
+defaults_meta = st.session_state.get("defaults_metadata", {})
+
+# Fetch today's NEOs
+neo_df = fetch_today_neos()
+
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -793,22 +810,22 @@ with exp_tab:
 
     secondary_cols = st.columns(2)
     with secondary_cols[0]:
-        density_fallback = max(
-            float(preset_density),
-            float(get_slider_spec("bulk_density").min_value),
-        )
-        density_spec, density_kwargs = prepare_slider_args(
-            "bulk_density",
-            key_override=f"density_{material}",
-            fallback_value=density_fallback,
-            fallback_label="material_preset",
+        density = st.slider(
+            "Bulk density (kg/m³)",
+            300,
+            9000,
+            value=int(preset_density),
+            step=50,
+            key=f"density_{material}",
         )
     with secondary_cols[1]:
-        strength_spec, strength_kwargs = prepare_slider_args(
-            "strength_mpa",
-            key_override=f"strength_{material}",
-            fallback_value=float(preset_strength),
-            fallback_label="material_preset",
+        strength_mpa = st.slider(
+            "Bulk compressive strength (MPa)",
+            0.1,
+            300.0,
+            value=float(preset_strength),
+            step=0.1,
+            key=f"strength_{material}",
         )
 
     st.markdown("**" + t("app.where_hit") + "**")
@@ -1037,7 +1054,6 @@ with exp_tab:
                 options=neo_options,
                 key="neo_choice"
             )
-            row = df.loc[df["name"] == choice].iloc[0]
 
             if choice != "— use custom values —":
                 row = df.loc[df["name"] == choice].iloc[0]
@@ -1161,6 +1177,50 @@ with learn_tab:
     st.markdown(t("app.where_to_extend_bullet_orbit") or "- **Orbit view:** a 3D Three.js canvas for the Sun–Earth–asteroid geometry (or use Plotly 3D).")
 
 st.sidebar.title(t("sidebar.about_title") or "About this MVP")
+
+# Language selector in sidebar
+# Use the available languages from the i18n module
+if AVAILABLE_LANGS:
+    available_codes = AVAILABLE_LANGS
+else:
+    available_codes = ["en", "es", "fr", "zh-Hant"]
+
+session_lang = st.session_state.get("lang")
+current_lang = session_lang or get_lang()
+
+if current_lang not in available_codes:
+    current_lang = available_codes[0]
+    st.session_state["lang"] = current_lang
+
+# Ensure the active translator matches the session state
+if current_lang != get_lang():
+    try:
+        set_lang(current_lang)
+    except ValueError:
+        current_lang = available_codes[0]
+        st.session_state["lang"] = current_lang
+        set_lang(current_lang)
+
+# Find current index for the select box
+try:
+    current_idx = available_codes.index(current_lang)
+except ValueError:
+    current_idx = 0
+
+selected_lang = st.sidebar.selectbox(
+    "Language / Idioma / Langue / 語言",
+    options=available_codes,
+    format_func=lambda code: get_language_label(code, fallback=code),
+    index=current_idx,
+    key="language_selector"
+)
+
+# Update language if changed
+if selected_lang != current_lang:
+    set_lang(selected_lang)
+    st.session_state["lang"] = selected_lang
+    st.rerun()
+
 if defaults_meta:
     default_name = (
         defaults_meta.get("sbdb_fullname")
