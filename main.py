@@ -1,4 +1,4 @@
-# main.py
+# app.py
 # Streamlit MVP for an educational asteroid-impact dashboard
 # ----------------------------------------------------------- 
 # Features
@@ -16,12 +16,15 @@
 import math
 import os
 from datetime import date
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+
 from src.i18n import t, set_lang, get_lang, get_language_label, AVAILABLE_LANGS
+
 from src.api.nasa_neo import NeoWsClient, NeoWsError
 from src.data.defaults import (
     DEFAULT_NEO_ID,
@@ -732,6 +735,52 @@ defaults_meta = st.session_state.get("defaults_metadata", {})
 # Fetch today's NEOs
 neo_df = fetch_today_neos()
 
+
+if AVAILABLE_LANGS:
+    available_codes = AVAILABLE_LANGS
+else:
+    available_codes = ["en", "es", "fr", "zh-Hant"]
+
+session_lang = st.session_state.get("lang")
+current_lang = session_lang or get_lang()
+
+if current_lang not in available_codes:
+    current_lang = available_codes[0]
+    st.session_state["lang"] = current_lang
+
+if current_lang != get_lang():
+    try:
+        set_lang(current_lang)
+    except ValueError:
+        current_lang = available_codes[0]
+        st.session_state["lang"] = current_lang
+        set_lang(current_lang)
+
+try:
+    current_idx = available_codes.index(current_lang)
+except ValueError:
+    current_idx = 0
+
+selected_lang = st.sidebar.selectbox(
+    "Language / Idioma / Langue / 語言",
+    options=available_codes,
+    format_func=lambda code: get_language_label(code, fallback=code),
+    index=current_idx,
+    key="language_selector"
+)
+
+show_sensitive = st.sidebar.checkbox(
+    "Censor sensitive content",
+    value=False,
+    help="Turn on to display very rough counts of people who could be hurt. For classroom use only."
+)
+st.session_state["show_sensitive"] = show_sensitive
+
+if selected_lang != current_lang:
+    set_lang(selected_lang)
+    st.session_state["lang"] = selected_lang
+    st.rerun()
+
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -744,16 +793,11 @@ if "widget_overrides" in st.session_state:
 exp_tab, defend_tab, learn_tab = st.tabs([t("app.explore") or t("app.explore") or t("explore"), t("app.defend_earth") or t("defend_earth"), t("app.learn_label") or t("learn_label")])
 
 with exp_tab:
-    st.subheader(t("app.choose_params"))
-    if defaults_meta:
-        sbdb_name = defaults_meta.get("sbdb_fullname") or DEFAULT_SBDB_ID
-        st.caption(
-            t("app.caption")
-        )
-        field_sources = defaults_meta.get("field_sources") or {}
+    with st.sidebar:
+        st.subheader(t("app.choose_params"))
+        if defaults_meta:
+            st.caption(t("app.caption"))
 
-    primary_cols = st.columns(4)
-    with primary_cols[0]:
         diameter_default = int(st.session_state.get("diameter_m", 150))
         diameter_m = st.slider(
             "Asteroid diameter (m)",
@@ -763,7 +807,7 @@ with exp_tab:
             step=10,
             key="diameter_m",
         )
-    with primary_cols[1]:
+
         velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
         velocity = st.slider(
             "Velocity at impact (km/s)",
@@ -773,7 +817,7 @@ with exp_tab:
             step=0.5,
             key="velocity_km_s",
         )
-    with primary_cols[2]:
+
         angle_default = int(st.session_state.get("angle_deg", 45))
         angle = st.slider(
             "Impact angle (°)",
@@ -784,9 +828,12 @@ with exp_tab:
             key="angle_deg",
         )
         st.caption("10° = shallow (skips along), 90° = straight down")
-    with primary_cols[3]:
+
         material_options = list(MATERIAL_PRESETS.keys())
-        default_material = st.session_state.get("material_preset", defaults_meta.get("material", material_options[1]))
+        default_material = st.session_state.get(
+            "material_preset",
+            defaults_meta.get("material", material_options[1])
+        )
         try:
             material_index = material_options.index(default_material)
         except ValueError:
@@ -798,11 +845,9 @@ with exp_tab:
             key="material_preset",
         )
 
-    preset_density = MATERIAL_PRESETS[material]["density"]
-    preset_strength = MATERIAL_PRESETS[material]["strength_mpa"]
+        preset_density = MATERIAL_PRESETS[material]["density"]
+        preset_strength = MATERIAL_PRESETS[material]["strength_mpa"]
 
-    secondary_cols = st.columns(2)
-    with secondary_cols[0]:
         density = st.slider(
             "Bulk density (kg/m³)",
             300,
@@ -811,7 +856,7 @@ with exp_tab:
             step=50,
             key=f"density_{material}",
         )
-    with secondary_cols[1]:
+
         strength_mpa = st.slider(
             "Bulk compressive strength (MPa)",
             0.1,
@@ -821,18 +866,24 @@ with exp_tab:
             key=f"strength_{material}",
         )
 
-    st.markdown("**" + t("app.where_hit") + "**")
-    c1, c2, c3 = st.columns([2,1,1])
-    with c1:
+        st.markdown("**" + t("app.where_hit") + "**")
         preset = st.selectbox(t("app.city_preset"), list(CITY_PRESETS.keys()), key="city_preset")
-    if preset and CITY_PRESETS[preset][0] is not None:
-        lat, lon = CITY_PRESETS[preset]
-    else:
-        with c2:
-            lat = st.number_input(t("labels.latitude"), value=29.7604, format="%.4f", key="impact_lat_manual")
-        with c3:
-            lon = st.number_input(t("labels.longitude"), value=-95.3698, format="%.4f", key="impact_lon_manual")
-    # Choose densities based on city selection
+        if preset and CITY_PRESETS[preset][0] is not None:
+            lat, lon = CITY_PRESETS[preset]
+        else:
+            lat = st.number_input(
+                t("labels.latitude"),
+                value=29.7604,
+                format="%.4f",
+                key="impact_lat_manual",
+            )
+            lon = st.number_input(
+                t("labels.longitude"),
+                value=-95.3698,
+                format="%.4f",
+                key="impact_lon_manual",
+            )
+
     if preset in CITY_RING_DENSITY:
         current_ring_densities = CITY_RING_DENSITY[preset]
     else:
@@ -841,7 +892,6 @@ with exp_tab:
     st.session_state["impact_lat_used"] = float(lat)
     st.session_state["impact_lon_used"] = float(lon)
 
-    # Computations
     m = asteroid_mass_kg(diameter_m, density)
     E_j = kinetic_energy_joules(m, velocity)
     E_mt = tnt_megatons(E_j)
@@ -849,21 +899,16 @@ with exp_tab:
     burst_alt_km = max(0.0, breakup_alt_km)
     ground_fraction = ground_energy_fraction(burst_alt_km)
     crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
-    # If very little energy reaches the ground, force airburst in the UI
     if ground_fraction < AIRBURST_THRESHOLD:
         crater_m = 0.0
     crater_km = crater_m / 1000.0
-    # The height term inside blast_overpressure_radius_km already accounts for attenuation.
-    # Use actual ground-coupled energy; no artificial floor
     E_ground_mt = max(E_mt * ground_fraction, 0.0)
 
     r_mod = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, overpressure_psi=4.0)
     r_severe = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, overpressure_psi=12.0)
     r_light = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, overpressure_psi=1.0)
 
-    # If the blast rings collapse (e.g., high-altitude bursts) but a crater forms, seed rings from the crater footprint
     crater_radius_km = max(crater_km / 2.0, 0.0)
-    # Only force nesting when the blast calculation is effectively zero
     if crater_radius_km > 0 and (E_ground_mt < 0.5 or r_mod < 0.1):
         r_severe = max(r_severe, crater_radius_km)
         r_mod = max(r_mod, r_severe * 1.6)
@@ -872,54 +917,6 @@ with exp_tab:
     exposure = estimate_population_impacts(r_severe, r_mod, r_light, ring_densities=current_ring_densities)
     Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
 
-    st.markdown("### " + t("app.results"))
-    show_confidence = st.checkbox("Show confidence levels", value=False)
-    cols = st.columns(4)
-
-    with cols[0]:
-        st.metric(t("metrics.mass"), f"{m:,.0f} kg")
-        if show_confidence:
-            st.caption("Confidence: ✅ High (direct calculation)")
-
-    with cols[1]:
-        st.metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
-        if show_confidence:
-            st.caption("Confidence: ✅ High (formula-based)")
-
-    with cols[2]:
-        st.metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
-        if show_confidence:
-            st.caption("Confidence: ⚠️ Medium (simplified atmospheric breakup model)")
-
-    with cols[3]:
-        st.metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
-        if show_confidence:
-            st.caption("Confidence: ⚠️ Medium (approximate fraction)")
-
-    crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else t("app.airburst")
-
-    cols2 = st.columns(4)
-
-    with cols2[0]:
-        st.metric(t("metrics.crater"), crater_display)
-        if show_confidence:
-            st.caption("Confidence: ⚠️ Medium (simple scaling law)")
-
-    with cols2[1]:
-        st.metric(t("metrics.severe_radius"), f"{r_severe:.2f} km")
-        if show_confidence:
-            st.caption("Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)")
-
-    with cols2[2]:
-        st.metric(t("metrics.moderate_radius"), f"{r_mod:.2f} km")
-
-    with cols2[3]:
-        st.metric(t("metrics.light_radius"), f"{r_light:.2f} km")
-
-    # Combined caption for the radii group
-    if show_confidence:
-        st.caption("Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)")
-
     pair_damage_area_km2 = math.pi * max(r_mod, 0.0) ** 2
     if preset in CITY_RING_DENSITY:
         pair_density = CITY_RING_DENSITY[preset].get("moderate", DEFAULT_RING_DENSITY["moderate"])
@@ -927,33 +924,213 @@ with exp_tab:
         pair_density = DEFAULT_RING_DENSITY["moderate"]
     pair_affected_population_4psi = pair_damage_area_km2 * pair_density
 
-    cols3 = st.columns(3)
+    st.markdown("### " + t("app.results"))
+    show_confidence = st.checkbox("Show confidence levels", value=False)
 
-    with cols3[0]:
+    core_cols = st.columns(4)
+    with core_cols[0]:
+        st.metric(t("metrics.mass"), f"{m:,.0f} kg")
+        if show_confidence:
+            st.caption("Confidence: ✅ High (direct calculation)")
+
+    with core_cols[1]:
+        st.metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
+        if show_confidence:
+            st.caption("Confidence: ✅ High (formula-based)")
+
+    with core_cols[2]:
+        st.metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (simplified atmospheric breakup model)")
+
+    with core_cols[3]:
+        st.metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (approximate fraction)")
+
+    crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else t("app.airburst")
+
+    blast_cols = st.columns(4)
+
+    with blast_cols[0]:
+        st.metric(t("metrics.crater"), crater_display)
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (simple scaling law)")
+
+    with blast_cols[1]:
+        st.metric(t("metrics.severe_radius"), f"{r_severe:.2f} km")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)")
+
+    with blast_cols[2]:
+        st.metric(t("metrics.moderate_radius"), f"{r_mod:.2f} km")
+
+    with blast_cols[3]:
+        st.metric(t("metrics.light_radius"), f"{r_light:.2f} km")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)")
+
+    exposure_cols = st.columns(3)
+
+    with exposure_cols[0]:
         st.metric("Population in 4-psi zone", f"{pair_affected_population_4psi:,.0f}")
         if show_confidence:
             st.caption("Confidence: ⚠️ Low (coarse population overlay)")
 
-    with cols3[1]:
+    with exposure_cols[1]:
         st.metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
 
-    with cols3[2]:
+    with exposure_cols[2]:
         st.metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
         if show_confidence:
             st.caption("Confidence: ⚠️ Medium (energy-to-seismic conversion rough estimate)")
 
+    st.session_state["impact_scenario"] = {
+        "lat": lat, "lon": lon,
+        "diameter_m": diameter_m, "density": density, "velocity": velocity,
+        "angle": angle, "strength_mpa": strength_mpa,
+        "E_mt": E_mt, "E_ground_mt": E_ground_mt,
+        "burst_alt_km": burst_alt_km, "crater_km": crater_km,
+        "r_severe": r_severe, "r_mod": r_mod, "r_light": r_light, "Mw": Mw,
+        "exposure": exposure, "casualties": exposure.get("casualties", 0.0),
+        "ring_densities": current_ring_densities,
+    }
+
+    view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
+
+    def circle_layer(radius_km, color, name=""):
+        return pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [name]}),
+            get_position="[lon, lat]",
+            get_radius=radius_km * 1000,
+            radius_min_pixels=1,
+            radius_max_pixels=10000,
+            get_fill_color=color,
+            pickable=True,
+            stroked=False,
+            filled=True,
+        )
+
+    # Legend placement inside the map using a TextLayer and translucent background
+    deg_per_km = 1.0 / 111.0
+    span_deg = max(r_light * deg_per_km, 0.1)
+    legend_lat_start = lat + span_deg * 1.3
+    legend_lon_start = lon - span_deg * 1.3
+    line_spacing = max(span_deg * 0.45, 0.04)
+    legend_lines = [
+        ("MAP LEGEND", [255, 255, 255, 230]),
+        ("• Impact point", [255, 255, 0, 230]),
+        (f"• Crater footprint ({crater_km:.2f} km)", [200, 200, 200, 230]),
+        (f"• 12-psi zone ({r_severe:.1f} km)", [180, 0, 0, 230]),
+        (f"• 4-psi zone ({r_mod:.1f} km)", [220, 30, 30, 230]),
+        (f"• 1-psi zone ({r_light:.1f} km)", [255, 140, 0, 230]),
+    ]
+    legend_data = []
+    for idx, (text, color) in enumerate(legend_lines):
+        legend_data.append({
+            "text": text,
+            "lat": legend_lat_start - idx * line_spacing,
+            "lon": legend_lon_start,
+            "color": color,
+        })
+
+    box_padding_lat = line_spacing * (len(legend_lines) + 0.6)
+    box_padding_lon = max(span_deg * 1.4, 0.25)
+    legend_box = [{
+        "polygon": [
+            [legend_lon_start - 0.02, legend_lat_start + line_spacing],
+            [legend_lon_start + box_padding_lon, legend_lat_start + line_spacing],
+            [legend_lon_start + box_padding_lon, legend_lat_start - box_padding_lat],
+            [legend_lon_start - 0.02, legend_lat_start - box_padding_lat],
+        ]
+    }]
+
+    legend_background = pdk.Layer(
+        "PolygonLayer",
+        legend_box,
+        get_polygon="polygon",
+        get_fill_color=[20, 20, 20, 160],
+        pickable=False,
+        stroked=False,
+    )
+
+    legend_text_layer = pdk.Layer(
+        "TextLayer",
+        data=pd.DataFrame(legend_data),
+        get_position="[lon, lat]",
+        get_text="text",
+        get_color="color",
+        get_size=18,
+        get_alignment_baseline="bottom",
+        get_text_anchor="start",
+        billboard=True,
+    )
+
+    rings = [
+        circle_layer(r_light, [255, 165, 0, 60], f"1-psi zone: {r_light:.1f} km"),
+        circle_layer(r_mod, [255, 0, 0, 80], f"4-psi zone (PAIR): {r_mod:.1f} km"),
+        circle_layer(r_severe, [139, 0, 0, 120], f"12-psi zone: {r_severe:.1f} km"),
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [f"Crater: {crater_km:.2f} km diameter"]}),
+            get_position="[lon, lat]",
+            get_radius=crater_km * 500,
+            get_fill_color=[50, 50, 50, 220],
+            get_line_color=[255, 255, 255, 255],
+            line_width_min_pixels=2,
+            pickable=True,
+        ),
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": ["Impact Point"]}),
+            get_position="[lon, lat]",
+            get_radius=1000,
+            get_fill_color=[255, 255, 0, 255],
+            get_line_color=[255, 0, 0, 255],
+            line_width_min_pixels=2,
+            pickable=True,
+        ),
+    ]
+
+    if MAPBOX_TOKEN:
+        deck = pdk.Deck(
+            map_style="mapbox://styles/mapbox/dark-v11",
+            initial_view_state=view_state,
+            layers=[legend_background, legend_text_layer, *rings],
+        )
+    else:
+        basemap = pdk.Layer(
+            "TileLayer",
+            data="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            min_zoom=0, max_zoom=19, tile_size=256,
+        )
+        deck = pdk.Deck(
+            initial_view_state=view_state,
+            layers=[basemap, legend_background, legend_text_layer, *rings],
+            map_style=None,
+        )
+
+    st.pydeck_chart(deck)
+
+    st.markdown("""
+    **Map Legend:**
+    - 🟡 **Yellow dot**: Impact point
+    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
+    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
+    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
+    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
+    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
+
     with st.expander("Damage assessment details"):
-        # PAIR uses 4-psi as the primary damage threshold (full circle, not a ring)
-        pair_damage_radius_km = r_mod  # 4-psi radius
+        pair_damage_radius_km = r_mod
         pair_damage_area_km2 = math.pi * max(pair_damage_radius_km, 0.0) ** 2
-        # Population = full area within 4-psi × density
         pair_affected_pop = pair_damage_area_km2 * pair_density
 
         st.metric("Damage radius (4-psi)", f"{pair_damage_radius_km:.2f} km")
         st.metric("Damage area (full circle)", f"{pair_damage_area_km2:,.1f} km²")
         st.metric("Population", f"{pair_affected_pop:,.0f} people")
 
-        # Show all three rings for reference/visualization
         st.markdown("**Blast overpressure rings:**")
         exposure_rows = []
         for ring, radius, psi in [("severe", r_severe, 12), ("moderate", r_mod, 4), ("light", r_light, 1)]:
@@ -987,7 +1164,11 @@ with exp_tab:
                     "casualties",
                 ]].quantile([0.5, 0.9]).T
                 quantiles.columns = ["p50", "p90"]
-                st.subheader(t("app.key_outcome_quantiles") if t("app.key_outcome_quantiles", default=None) else "Key outcome quantiles")
+                st.subheader(
+                    t("app.key_outcome_quantiles")
+                    if t("app.key_outcome_quantiles", default=None)
+                    else "Key outcome quantiles"
+                )
                 st.dataframe(quantiles)
 
                 crater_probability = float((sim_df["crater_km"] > 0).mean())
@@ -996,23 +1177,34 @@ with exp_tab:
     with st.expander("Use today's NASA NEOs as inputs"):
         df = neo_df.copy()
         if df.empty:
-            st.info(t("app.neo_fetch_unavailable") or "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
+            st.info(
+                t("app.neo_fetch_unavailable")
+                or "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator."
+            )
         else:
-            # Derive average diameter and lunar-distance multiples for context
             df = df.copy()
             df["diameter_avg_m"] = 0.5 * (df["est_diameter_min_m"] + df["est_diameter_max_m"])
             MOON_KM = 384_400.0
             df["miss_distance_moon_x"] = df["miss_distance_km"] / MOON_KM
 
-            # Short, readable view
-            view_cols = ["name", "diameter_avg_m", "velocity_km_s", "miss_distance_km", "miss_distance_moon_x", "hazardous"]
-            st.dataframe(df[view_cols].rename(columns={
-                "diameter_avg_m": t("neo.cols.diameter_avg_m") or "diameter_avg_m (m)",
-                "miss_distance_km": t("neo.cols.miss_distance_km") or "miss_distance (km)",
-                "miss_distance_moon_x": t("neo.cols.miss_distance_moon_x") or "miss distance (× Moon)"
-            }))
+            view_cols = [
+                "name",
+                "diameter_avg_m",
+                "velocity_km_s",
+                "miss_distance_km",
+                "miss_distance_moon_x",
+                "hazardous",
+            ]
+            st.dataframe(
+                df[view_cols].rename(
+                    columns={
+                        "diameter_avg_m": t("neo.cols.diameter_avg_m") or "diameter_avg_m (m)",
+                        "miss_distance_km": t("neo.cols.miss_distance_km") or "miss_distance (km)",
+                        "miss_distance_moon_x": t("neo.cols.miss_distance_moon_x") or "miss distance (× Moon)"
+                    }
+                )
+            )
 
-            # Pick one and push into the simulator
             neo_options = ["— use custom values —"] + df["name"].tolist()
             choice = st.selectbox(
                 "Pick an asteroid to simulate (what-if it hit):",
@@ -1043,96 +1235,12 @@ with exp_tab:
                     }
                     st.rerun()
 
-                # Preview metric based on the catalog row
                 mass = asteroid_mass_kg(row["diameter_avg_m"], density)
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
                 st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
             else:
                 if st.session_state.get("_neo_autofill_source"):
                     st.session_state.pop("_neo_autofill_source")
-
-    # Map visualization with crater and blast damage zones
-    st.markdown("### Impact Visualization Map")
-
-    # Map visualization with concentric circles
-    st.session_state["impact_scenario"] = {
-        "lat": lat, "lon": lon,
-        "diameter_m": diameter_m, "density": density, "velocity": velocity,
-        "angle": angle, "strength_mpa": strength_mpa,
-        "E_mt": E_mt, "E_ground_mt": E_ground_mt,
-        "burst_alt_km": burst_alt_km, "crater_km": crater_km,
-        "r_severe": r_severe, "r_mod": r_mod, "r_light": r_light, "Mw": Mw,
-        "exposure": exposure, "casualties": exposure.get("casualties", 0.0),
-        "ring_densities": current_ring_densities,  # NEW
-    }
-
-    view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
-
-    def circle_layer(radius_km, color, name=""):
-        return pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [name]}),
-            get_position="[lon, lat]",
-            get_radius=radius_km * 1000,
-            radius_min_pixels=1,
-            radius_max_pixels=10000,
-            get_fill_color=color,
-            pickable=True,
-            stroked=False,
-            filled=True,
-        )
-
-    rings = [
-        # Blast damage zones (from outer to inner)
-        circle_layer(r_light, [255, 165, 0, 60], f"1-psi zone: {r_light:.1f} km"),
-        circle_layer(r_mod, [255, 0, 0, 80], f"4-psi zone (PAIR): {r_mod:.1f} km"),
-        circle_layer(r_severe, [139, 0, 0, 120], f"12-psi zone: {r_severe:.1f} km"),
-        # Crater
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [f"Crater: {crater_km:.2f} km diameter"]}),
-            get_position="[lon, lat]",
-            get_radius=crater_km * 500,  # crater radius in meters
-            get_fill_color=[50, 50, 50, 220],
-            get_line_color=[255, 255, 255, 255],
-            line_width_min_pixels=2,
-            pickable=True,
-        ),
-        # Impact point marker
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": ["Impact Point"]}),
-            get_position="[lon, lat]",
-            get_radius=1000,
-            get_fill_color=[255, 255, 0, 255],
-            get_line_color=[255, 0, 0, 255],
-            line_width_min_pixels=2,
-            pickable=True,
-        ),
-    ]
-
-    # Basemap handling: use Mapbox style if token exists, else add an open TileLayer basemap
-    if MAPBOX_TOKEN:
-        deck = pdk.Deck(map_style="mapbox://styles/mapbox/dark-v11", initial_view_state=view_state, layers=rings)
-    else:
-        basemap = pdk.Layer(
-            "TileLayer",
-            data="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-            min_zoom=0, max_zoom=19, tile_size=256,
-        )
-        deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *rings], map_style=None)
-
-    st.pydeck_chart(deck)
-
-    # Map legend
-    st.markdown("""
-    **Map Legend:**
-    - 🟡 **Yellow dot**: Impact point
-    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
-    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
-    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
-    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
-    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
 
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
@@ -1597,77 +1705,3 @@ with learn_tab:
     )
 
     st.caption("Educational mode: simplified for learning. Data and models inspired by NASA, ESA, and academic impact simulations.")
-
-
-
-st.sidebar.title(t("sidebar.about_title") or "About this MVP")
-
-# Language selector in sidebar
-# Use the available languages from the i18n module
-if AVAILABLE_LANGS:
-    available_codes = AVAILABLE_LANGS
-else:
-    available_codes = ["en", "es", "fr", "zh-Hant"]
-
-session_lang = st.session_state.get("lang")
-current_lang = session_lang or get_lang()
-
-if current_lang not in available_codes:
-    current_lang = available_codes[0]
-    st.session_state["lang"] = current_lang
-
-# Ensure the active translator matches the session state
-if current_lang != get_lang():
-    try:
-        set_lang(current_lang)
-    except ValueError:
-        current_lang = available_codes[0]
-        st.session_state["lang"] = current_lang
-        set_lang(current_lang)
-
-# Find current index for the select box
-try:
-    current_idx = available_codes.index(current_lang)
-except ValueError:
-    current_idx = 0
-
-selected_lang = st.sidebar.selectbox(
-    "Language / Idioma / Langue / 語言",
-    options=available_codes,
-    format_func=lambda code: get_language_label(code, fallback=code),
-    index=current_idx,
-    key="language_selector"
-)
-
-# Classroom-friendly toggle for sensitive content
-show_sensitive = st.sidebar.checkbox(
-    "Censor sensitive content",
-    value=False,
-    help="Turn on to display very rough counts of people who could be hurt. For classroom use only."
-)
-st.session_state["show_sensitive"] = show_sensitive
-
-# Update language if changed
-if selected_lang != current_lang:
-    set_lang(selected_lang)
-    st.session_state["lang"] = selected_lang
-    st.rerun()
-
-if defaults_meta:
-    default_name = (
-        defaults_meta.get("sbdb_fullname")
-        or defaults_meta.get("neo_name")
-        or DEFAULT_SBDB_ID
-    )
-    provenance = defaults_meta.get("provenance", "NeoWs/SBDB")
-    taxonomy = defaults_meta.get("taxonomy")
-    density_val = defaults_meta.get("density")
-    st.sidebar.markdown(
-        "**" + t("sidebar.default_object", name=default_name) + "**<br>"
-        + t("sidebar.source", src=provenance)
-        + "<br>" + t("sidebar.spectral", tax=taxonomy or "n/a")
-        + "<br>" + t("sidebar.density", dens=density_val or 0.0),
-        unsafe_allow_html=True,
-    )
-st.sidebar.info("K-12 mode: We use simple, age-appropriate language and avoid graphic details. Toggle **advanced impact-health estimates** above if needed.")
-st.sidebar.info(t("sidebar.disclaimer") or "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data.")
