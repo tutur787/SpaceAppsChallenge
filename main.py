@@ -1136,31 +1136,308 @@ with defend_tab:
     st.pydeck_chart(deck)
 
 with learn_tab:
-    st.subheader(t("learn.glossary_title") or "Glossary & Teaching Aids")
-    # long learn text moved to the i18n catalog
-    st.markdown(t("learn.learn_text") or """
-        **Asteroid** — A rocky object orbiting the Sun. Some get close to Earth and are called **NEOs** (Near-Earth Objects).
+    import streamlit as st
 
-        **Diameter** — How wide the asteroid is. Bigger usually means more energy on impact.
+    st.subheader("Asteroid Impact Glossary")
 
-        **Velocity** — How fast it's moving. Energy grows with the **square** of speed!
 
-        **Kinetic energy** — Energy of motion. We convert it to **megatons of TNT** to help compare sizes.
 
-        **Crater** — A bowl-shaped hole. Our estimate is simplified for learning.
 
-        **Deflection (Δv)** — A tiny push far in advance can move an asteroid enough to miss Earth.
+    # --------------------------
+    # Your glossary JSON (pasted as-is)
+    # --------------------------
+    GLOSSARY_RAW = {
+      "Airburst": {
+        "term": "Airburst",
+        "Definition": "An explosion in the atmosphere caused when an incoming body (asteroid or meteoroid) breaks apart under aerodynamic pressure before reaching the ground.",
+        "Example": "The Chelyabinsk event in 2013 was an airburst: the object exploded at about 30 km altitude, causing a shockwave and damage on the ground.",
+        "Fun fact": "An airburst can sometimes cause more ground-level damage than a small crater impact because the shockwave spreads over a wide area.",
+        "URL": "https://assets.iflscience.com/assets/articleNo/72849/aImg/74031/touchdown-l.webp"
+      },
+      "Asteroid": {
+        "term": "Asteroid",
+        "Definition": "A rocky (or metallic) body orbiting the Sun, typically found in the asteroid belt between Mars and Jupiter; some cross Earth's orbit and become Near-Earth Objects (NEOs).",
+        "Example": "The asteroid 99942 Apophis is a known Near-Earth Object under study for possible Earth close approaches.",
+        "Fun fact": "The largest known asteroid, Ceres, is also classified as a dwarf planet and has a diameter of ~940 km.",
+        "URL": "https://hips.hearstapps.com/hmg-prod/images/rock-on-starry-background-royalty-free-image-1645118962.jpg?resize=1200:*"
+      },
+      "Breakup altitude": {
+        "term": "Breakup altitude",
+        "Definition": "The height above ground where aerodynamic pressure (dynamic pressure) exceeds the structural strength of the body, causing it to fragment.",
+        "Example": "If a stony asteroid breaks up at 20 km altitude, much of its energy may be dissipated before ground impact.",
+        "Fun fact": "Breakup altitude depends not only on speed, but also on internal cracks and composition; a “rubble pile” asteroid breaks more easily.",
+        "URL": "https://www.spacesafetymagazine.com/wp-content/uploads/2014/05/reentry-breakup.jpg"
+      },
+      "Crater": {
+        "term": "Crater",
+        "Definition": "The depression or cavity formed on the surface when an impactor (asteroid) strikes the ground, displacing material and ejecta.",
+        "Example": "Meteor Crater in Arizona is about 1.2 km across and ~170 m deep, created about 50,000 years ago.",
+        "Fun fact": "Some craters show ‘central peaks’—mountainous rebounds—if the impact was energetic enough to momentarily behave like a fluid.",
+        "URL": "https://upload.wikimedia.org/wikipedia/commons/f/fd/Meteor_Crater_-_Arizona.jpg"
+      },
+      "Deflection (Δv)": {
+        "term": "Deflection (Δv)",
+        "Definition": "A small change in an asteroid’s velocity (Δv) applied early in its orbit to alter its path so it misses Earth.",
+        "Example": "Adding a Δv of just a few mm/s years in advance can cause the asteroid to drift enough to avoid Earth.",
+        "Fun fact": "In gravitational dynamics, a tiny push applied early often yields far greater effect than a large push applied late.",
+        "URL": "https://qph.cf2.quoracdn.net/main-qimg-45551dbb9fbad51a769e897496294fd1"
+      },
+      "Diameter (D)": {
+        "term": "Diameter (D)",
+        "Definition": "The straight-line width of the asteroid (i.e. the maximum cross-sectional distance). Larger diameter generally means more mass and higher potential energy.",
+        "Example": "An asteroid with diameter 100 m has vastly lower mass than one 1 km in diameter (volume scales with the cube).",
+        "Fun fact": "If you lined up a 100 m asteroid next to a football stadium, it’d stretch across the entire field and beyond!",
+        "URL": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Circle_diameter.svg"
+      },
+      "Density (ρ)": {
+        "term": "Density (ρ)",
+        "Definition": "Mass per unit volume (ρ = m/V). For asteroids, typical values are ~3000 kg/m³ (stony) or ~7800 kg/m³ (iron).",
+        "Example": "If an asteroid has volume 1 × 10⁶ m³ and density 3000 kg/m³, its mass is 3 × 10⁹ kg.",
+        "Fun fact": "Some asteroids are “rubble piles”—collections of rocks loosely bound—so their bulk density is surprisingly low due to internal voids.",
+        "URL": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgGiaxx7peo4zh1eh7uNmH5OkmdOMAXxsEu_kvjAyLy_ZGMr8sT4OPVBNnx0HRVCES9JG7liEhwemzc72lxxB5sKUTBFYly28RvBqWIEUfLAORYse2cRbLKPOOAlg1YrQ8txpXoqWHBBV-r/s1600/Chart+showing+types+of+asteroids+and+meteorites.jpg"
+      },
+      "Impact angle (θ)": {
+        "term": "Impact angle (θ)",
+        "Definition": "The angle between the asteroid’s trajectory and the local horizontal (ground). Shallow angles (e.g. < 15°) tend to produce long paths and airbursts; steep angles (near 90°) produce deep craters.",
+        "Example": "An impact at θ = 30° will spread energy over a larger in-plane area than one at θ = 90°.",
+        "Fun fact": "Most celestial impacts prefer angles around 45° because vertical or extreme shallow trajectories are statistically rare.",
+        "URL": "https://i.sstatic.net/KRBHo.jpg"
+      },
+      "Kinetic energy (Eₖ)": {
+        "term": "Kinetic energy (Eₖ)",
+        "Definition": "The energy of the asteroid in motion, which is converted (upon impact or airburst) into heat, shock, light etc. Given by the equation Eₖ = ½ m v².",
+        "Example": "If m = 1 × 10⁹ kg and v = 20,000 m/s, then Eₖ = ½ × 1×10⁹ × (2×10⁴)² = 2×10¹⁷ J (≈ 48 megatons of TNT).",
+        "Fun fact": "Since Eₖ ∝ v², doubling speed quadruples energy — that’s why high-speed impacts are disproportionately destructive.",
+        "URL": "https://img.jagranjosh.com/images/2024/July/1072024/kinetic-energy-definition-formula-derivation-types-examples-and-calculations.webp"
+      },
+      "Mass (m)": {
+        "term": "Mass (m)",
+        "Definition": "The amount of matter in the asteroid (m = density × volume). It determines momentum and, together with velocity, the kinetic energy.",
+        "Example": "If ρ = 3000 kg/m³ and diameter = 100 m, volume ≈ (4/3)π(50 m)³ ≈ 5.24×10⁵ m³, so mass ≈ 1.57×10⁹ kg.",
+        "Fun fact": "Mass is one of the hardest properties to measure remotely — scientists often infer it by observing how the asteroid perturbs nearby spacecraft or other bodies.",
+        "URL": "https://energywavetheory.com/wp-content/uploads/2018/05/EarthMass.jpg"
+      },
+      "Monte Carlo simulation": {
+        "term": "Monte Carlo simulation",
+        "Definition": "A method that runs many randomized trials (varying size, velocity, angle, strength) to estimate a probabilistic risk distribution of impacts.",
+        "Example": "We can simulate 10,000 possible asteroid paths and record how many hit Earth vs miss, creating a risk histogram.",
+        "Fun fact": "The name ‘Monte Carlo’ comes from the casino in Monaco, because the method relies on randomness — like gambling draws.",
+        "URL": "https://datascience.eu/wp-content/uploads/2020/03/monte_carlo_price_1-636x310-2.png"
+      },
+      "Overpressure radius": {
+        "term": "Overpressure radius",
+        "Definition": "The distance from the impact or explosion center within which the blast pressure exceeds certain thresholds (e.g. 12 psi, 4 psi, 1 psi) causing severe, moderate, or light damage.",
+        "Example": "If overpressure of 4 psi is reached at 5 km, buildings within that radius may suffer significant damage.",
+        "Fun fact": "Even a relatively small asteroid can produce overpressure over tens of kilometers — far larger than its actual size.",
+        "URL": "https://static.wixstatic.com/media/603cad_d8d2a496375c41eca09a5368d6cf75b8~mv2.jpg/v1/fill/w_800,h_528,al_c,q_85,enc_avif,quality_auto/603cad_d8d2a496375c41eca09a5368d6cf75b8~mv2.jpg"
+      },
+      "Velocity (v)": {
+        "term": "Velocity (v)",
+        "Definition": "The speed of the asteroid relative to Earth (or the atmosphere) at impact. Since Eₖ ∝ v², velocity strongly impacts energy release.",
+        "Example": "Typical asteroid entry speeds are 11–30 km/s; if v = 20,000 m/s and mass = 1×10⁹ kg, Eₖ = ~2×10¹⁷ J.",
+        "Fun fact": "Even small increases in velocity yield huge gains in energy — a 10% speed boost gives ~21% more energy (since energy ∝ v²).",
+        "URL": "https://media.hswstatic.com/eyJidWNrZXQiOiJjb250ZW50Lmhzd3N0YXRpYy5jb20iLCJrZXkiOiJnaWZcL3ZlbG9jaXR5LWZvcm11bGEtbmV3MS5qcGciLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjgyOH0sInRvRm9ybWF0IjoiYXZpZiJ9fQ=="
+      }
+    }
 
-        **Why simplified?** — Real scientists use more complex models (airbursts, fragmentation, terrain, oceans).
-        Our goal is to **learn the ideas** first—then you can add advanced physics.
-        """)
-    st.markdown("### " + (t("app.where_to_extend") if t("app.where_to_extend", default=None) else t("app_extra.where_to_extend") or "Where to extend (hackathon tasks)"))
-    st.markdown(t("app.where_to_extend_bullet_usgs") or "- **USGS overlays:** add coastal elevation/tsunami hazard layers via tiled map sources.")
-    st.markdown(t("app.where_to_extend_bullet_population") or "- **Population exposure:** add a layer with night lights or population to illustrate risk.")
-    st.markdown(t("app.where_to_extend_bullet_models") or "- **Better crater/blast models:** swap in published scaling relations and atmosphere effects.")
-    st.markdown(t("app.where_to_extend_bullet_orbit") or "- **Orbit view:** a 3D Three.js canvas for the Sun–Earth–asteroid geometry (or use Plotly 3D).")
+    # --------------------------
+    # Helpers
+    # --------------------------
+    def slugify(s: str) -> str:
+        return "".join(ch.lower() if ch.isalnum() else "-" for ch in s).strip("-")
 
-st.sidebar.title(t("sidebar.about_title") or "About this MVP")
+    def normalize_items(d: dict):
+        """Convert your dict-of-dicts into a clean list of entries with consistent keys."""
+        items = []
+        for key, v in d.items():
+            term = v.get("term", key)
+            items.append({
+                "term": term,
+                "Definition": v.get("Definition", ""),
+                "Example": v.get("Example", ""),
+                "Fun fact": v.get("Fun fact", ""),
+                "URL": v.get("URL", ""),
+            })
+        items.sort(key=lambda x: x["term"].lower())
+        return items
+
+    # Normalize and initialize state
+    GLOSSARY = normalize_items(GLOSSARY_RAW)
+    for item in GLOSSARY:
+        st.session_state.setdefault(f"show-{slugify(item['term'])}", False)
+
+    # --- Place the button here, after GLOSSARY is defined ---
+    if st.button("📖 See all definitions"):
+        # Check if all are open
+        all_open = all(st.session_state[f"show-{slugify(item['term'])}"] for item in GLOSSARY)
+        for item in GLOSSARY:
+            st.session_state[f"show-{slugify(item['term'])}"] = not all_open
+    # UI
+    # --------------------------
+    cols_per_row = 3
+    gap = "large"
+
+    for i, item in enumerate(GLOSSARY):
+        if i % cols_per_row == 0:
+            cols = st.columns(cols_per_row, gap=gap)
+
+        with cols[i % cols_per_row]:
+            with st.container(border=True):
+                st.markdown(f"**{item['term']}**")
+                key = f"show-{slugify(item['term'])}"
+                with st.expander("Details", expanded=st.session_state[key]):
+                    if item["Definition"]:
+                        st.markdown(f"**Definition:** {item['Definition']}")
+                    if item["Example"]:
+                        st.markdown(f"**Example:** {item['Example']}")
+                    if item["Fun fact"]:
+                        st.markdown(f"**Fun fact:** {item['Fun fact']}")
+                    url = item.get("URL") or ""
+                    if isinstance(url, str) and url.strip():
+                        st.image(url.strip(), use_container_width=True)
+
+    st.markdown("## Important equations")
+
+    IMPORTANT_EQUATIONS = {
+      "Flight Dynamics Equations": {
+        "term": "Flight Dynamics Equations",
+        "Equation": [
+          "dm/dt = -0.5 * ρ_air * v^3 * A * σ",
+          "dv/dt = -0.5 * ρ_air * v^2 * A * C_D / m - g * sin(θ)",
+          "dθ/dt = (v / (R_E + h) - g / v) * cos(θ)",
+          "dh/dt = v * sin(θ)"
+        ],
+        "Output": "Describes how an asteroid's mass, velocity, flight path angle, and altitude change during its passage through Earth's atmosphere.",
+        "Variable": [
+          ["m", "Mass of the asteroid (kg)"],
+          ["v", "Velocity of the asteroid (m/s)"],
+          ["θ", "Flight path angle (radians)"],
+          ["h", "Altitude (m)"],
+          ["t", "Time (s)"],
+          ["g", "Acceleration due to gravity (9.81 m/s²)"],
+          ["ρ_air", "Local atmospheric density (kg/m³)"],
+          ["R_E", "Radius of Earth (≈6371 km)"],
+          ["A", "Cross-sectional area (m²)"],
+          ["C_D", "Drag coefficient (dimensionless)"],
+          ["σ", "Ablation coefficient (kg⁻¹ m²)"]
+        ]
+      },
+
+      "Fragmentation and Dispersion": {
+        "term": "Fragmentation and Dispersion",
+        "Equation": [
+          "ρ_air * v^2 > S",
+          "S_child = S_parent * (m_parent / m_child)^a",
+          "v_dispersion = v_cloud * sqrt((3.5 * ρ_air) / ρ_cloud)"
+        ],
+        "Output": "Determines when the asteroid breaks apart under aerodynamic pressure, how fragment strength scales, and how debris disperses through the atmosphere.",
+        "Variable": [
+          ["ρ_air", "Atmospheric density (kg/m³)"],
+          ["v", "Asteroid velocity (m/s)"],
+          ["S", "Aerodynamic strength (Pa)"],
+          ["S_parent", "Strength of the parent fragment (Pa)"],
+          ["S_child", "Strength of the child fragment (Pa)"],
+          ["m_parent", "Mass of the parent fragment (kg)"],
+          ["m_child", "Mass of the child fragment (kg)"],
+          ["a", "Strength-scaling exponent (dimensionless)"],
+          ["v_cloud", "Velocity of debris cloud (m/s)"],
+          ["ρ_cloud", "Density of the cloud material (kg/m³)"]
+        ]
+      },
+
+      "Blast Overpressure Damage": {
+        "term": "Blast Overpressure Damage",
+        "Equation": "R_ground = 2.09h - 0.449h²E^(-1/3) + 5.08E^(1/3)",
+        "Output": "Estimates the ground radius affected by shockwave overpressure, indicating zones of structural damage or human injury.",
+        "Variable": [
+          ["R_ground", "Ground damage radius (km)"],
+          ["h", "Burst altitude (km)"],
+          ["E", "Impact energy (megaton TNT equivalent)"]
+        ]
+      },
+
+      "Thermal Radiation Damage": {
+        "term": "Thermal Radiation Damage",
+        "Equation": [
+          "r = sqrt((η * E) / (2π * Φ_j))",
+          "R_ground = sqrt(r² - h²)"
+        ],
+        "Output": "Computes the distance where heat from an airburst causes third-degree burns and projects the affected radius onto the ground.",
+        "Variable": [
+          ["r", "Threshold radius from burst point (km)"],
+          ["η", "Luminous efficiency (fraction of energy radiated as heat)"],
+          ["E", "Impact energy (Joules or Mt)"],
+          ["Φ_j", "Thermal exposure threshold (J/m²)"],
+          ["R_ground", "Projected ground radius (km)"],
+          ["h", "Burst altitude (km)"]
+        ]
+      },
+
+      "Asteroid Diameter": {
+        "term": "Asteroid Diameter",
+        "Equation": "D = (1.326 × 10⁶) × 10^(-H/5) / sqrt(p_v)",
+        "Output": "Estimates the asteroid’s physical diameter based on its observed brightness and surface reflectivity.",
+        "Variable": [
+          ["D", "Asteroid diameter (m)"],
+          ["H", "Absolute magnitude (brightness)"],
+          ["p_v", "Albedo (reflectivity coefficient)"]
+        ]
+      },
+
+      "Entry Angle": {
+        "term": "Entry Angle",
+        "Equation": "θ° = (90° / π) * cos⁻¹(2U - 1)",
+        "Output": "Determines the statistical entry angle of an asteroid as it enters the atmosphere, used in probabilistic simulations.",
+        "Variable": [
+          ["θ°", "Entry angle in degrees"],
+          ["U", "Random number uniformly distributed between 0 and 1"]
+        ]
+      }
+    }
+
+    # Button to toggle all expanders
+    def eq_slugify(s: str) -> str:
+        return "".join(ch.lower() if ch.isalnum() else "-" for ch in s).strip("-")
+
+    # Initialize session state for equations
+    for eq in IMPORTANT_EQUATIONS.values():
+        st.session_state.setdefault(f"show-eq-{eq_slugify(eq['term'])}", False)
+
+    if st.button("📖 See all equations"):
+        all_open = all(st.session_state[f"show-eq-{eq_slugify(eq['term'])}"] for eq in IMPORTANT_EQUATIONS.values())
+        for eq in IMPORTANT_EQUATIONS.values():
+            st.session_state[f"show-eq-{eq_slugify(eq['term'])}"] = not all_open
+
+    # Render each equation in a container with expander
+    for eq in IMPORTANT_EQUATIONS.values():
+        key = f"show-eq-{eq_slugify(eq['term'])}"
+        with st.container(border=True):
+            st.markdown(f"**{eq['term']}**")
+            with st.expander("Details", expanded=st.session_state[key]):
+                # Equations
+                if isinstance(eq["Equation"], list):
+                    st.markdown("**Equation(s):**")
+                    for e in eq["Equation"]:
+                        st.latex(e)
+                else:
+                    st.markdown("**Equation:**")
+                    st.latex(eq["Equation"])
+                # Output
+                st.markdown(f"**Output:** {eq['Output']}")
+                # Variables
+                st.markdown("**Variables:**")
+                for var, desc in eq["Variable"]:
+                    st.markdown(f"- `{var}`: {desc}")
+
+
+    st.markdown("### Where to extend (hackathon tasks)")
+    st.markdown("- **USGS overlays:** add coastal elevation/tsunami hazard layers via tiled map sources.")
+    st.markdown("- **Population exposure:** add a layer with night lights or population to illustrate risk.")
+    st.markdown("- **Better crater/blast models:** swap in published scaling relations and atmosphere effects.")
+    st.markdown("- **Orbit view:** a 3D Three.js canvas for the Sun–Earth–asteroid geometry (or use Plotly 3D).")
+
+
+st.sidebar.title("About this MVP")
 if defaults_meta:
     default_name = (
         defaults_meta.get("sbdb_fullname")
