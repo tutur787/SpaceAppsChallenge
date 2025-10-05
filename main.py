@@ -394,7 +394,6 @@ def fetch_today_neos():
 # ----------------------------
 st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
 st.title("🛰️ Impactor-2025: Learn & Simulate")
-st.caption("An educational dashboard to explore asteroid impacts, built for a hackathon.")
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -455,7 +454,6 @@ with exp_tab:
             step=50,
             key=f"density_{material}",
         )
-        st.caption(f"Preset density for {material}: {preset_density} kg/m³")
     with secondary_cols[1]:
         strength_mpa = st.slider(
             "Bulk compressive strength (MPa)",
@@ -465,7 +463,6 @@ with exp_tab:
             step=0.1,
             key=f"strength_{material}",
         )
-        st.caption("Adjust to emulate cohesive strength used in PAIR entry modeling.")
 
     st.markdown("**Where does it hit?** Pick a city or enter coordinates.")
     c1, c2, c3 = st.columns([2,1,1])
@@ -537,24 +534,11 @@ with exp_tab:
         pair_density = DEFAULT_RING_DENSITY["moderate"]
     pair_affected_population_4psi = pair_damage_area_km2 * pair_density
 
-    cols3[0].metric("PAIR affected population (≤4-psi)", f"{pair_affected_population_4psi:,.0f}")
+    cols3[0].metric("Population in 4-psi zone", f"{pair_affected_population_4psi:,.0f}")
     cols3[1].metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
     cols3[2].metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
 
-    st.caption(
-        "**PAIR methodology:** 'Affected population' = everyone within 4-psi damage radius (no casualty rate modeling). "
-        "Population densities use synthetic values (city presets or fallback). "
-        "Production should integrate SEDAC gridded census data (Mathias et al. 2017, Section 2.5)."
-    )
-
-    with st.expander("PAIR damage assessment (Mathias et al. 2017)"):
-        st.markdown("""
-        **Methodology from white paper (Section 2.3-2.5):**
-        - Primary damage threshold: **4-psi blast overpressure** (standard for structural damage)
-        - Population counted within damage radius using gridded census data
-        - "Affected population" = everyone within damage area (not a modeled casualty rate)
-        """)
-
+    with st.expander("Damage assessment details"):
         # PAIR uses 4-psi as the primary damage threshold (full circle, not a ring)
         pair_damage_radius_km = r_mod  # 4-psi radius
         pair_damage_area_km2 = math.pi * max(pair_damage_radius_km, 0.0) ** 2
@@ -563,15 +547,10 @@ with exp_tab:
 
         st.metric("Damage radius (4-psi)", f"{pair_damage_radius_km:.2f} km")
         st.metric("Damage area (full circle)", f"{pair_damage_area_km2:,.1f} km²")
-        st.metric("Affected population", f"{pair_affected_pop:,.0f} people")
-
-        st.caption(
-            "⚠️ 'Affected' does not equal casualties. Actual harm depends on building codes, "
-            "warning time, shelter availability, and local infrastructure."
-        )
+        st.metric("Population", f"{pair_affected_pop:,.0f} people")
 
         # Show all three rings for reference/visualization
-        st.markdown("**Blast overpressure rings (for visualization):**")
+        st.markdown("**Blast overpressure rings:**")
         exposure_rows = []
         for ring, radius, psi in [("severe", r_severe, 12), ("moderate", r_mod, 4), ("light", r_light, 1)]:
             area = math.pi * max(radius, 0.0) ** 2
@@ -587,10 +566,7 @@ with exp_tab:
             )
         st.dataframe(pd.DataFrame(exposure_rows))
 
-    with st.expander("PAIR-inspired probabilistic scenarios"):
-        st.write(
-            "Sample uncertain properties (diameter, density, angle, strength) using the PAIR Monte Carlo approach to explore outcome distributions."
-        )
+    with st.expander("Probabilistic scenarios"):
         samples = st.slider("Number of Monte Carlo samples", 100, 1000, 300, step=50)
         if st.button("Run simulation", key="run_pair_button"):
             sim_df = run_pair_simulation(samples, diameter_m, density, velocity, angle, strength_mpa)
@@ -613,13 +589,8 @@ with exp_tab:
                 crater_probability = float((sim_df["crater_km"] > 0).mean())
                 st.metric("Probability of crater formation", f"{crater_probability*100:.1f}%")
 
-                st.caption(
-                    "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Replace assumed distributions with mission-specific priors as data become available."
-                )
-
     # Map visualization with crater and blast damage zones
     st.markdown("### Impact Visualization Map")
-    st.caption(f"📍 **Impact location:** {preset if preset != '— choose a place —' else f'{lat:.4f}, {lon:.4f}'}")
 
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
@@ -720,11 +691,6 @@ with exp_tab:
             if choice != "— use custom values —":
                 row = df.loc[df["name"] == choice].iloc[0]
 
-                st.caption(
-                    f"Selected **{row['name']}** — avg diameter ≈ {row['diameter_avg_m']:.1f} m, "
-                    f"speed ≈ {row['velocity_km_s']:.2f} km/s, "
-                    f"miss distance ≈ {row['miss_distance_km']:.0f} km (~{row['miss_distance_moon_x']:.1f}× Moon)."
-                )
 
                 # Automatically update sliders when selection changes
                 diameter_value = row["diameter_avg_m"]
@@ -751,13 +717,11 @@ with exp_tab:
                 # Preview metric
                 mass = asteroid_mass_kg(row["diameter_avg_m"], density)
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
-                st.metric("What-if energy (preview)", f"{E_mt_preview:,.2f} Mt TNT")
-                st.caption("Preview assumes current density/material selection.")
+                st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
 
 
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
-    st.write("Toy model: apply a small velocity change (Δv) some days before arrival and see how the nominal impact point shifts.")
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -819,10 +783,6 @@ with defend_tab:
         deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *overlays], map_style=None)
 
     st.pydeck_chart(deck)
-
-    st.caption(
-        "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point."
-    )
 
 with learn_tab:
     st.subheader("Glossary & Teaching Aids")
