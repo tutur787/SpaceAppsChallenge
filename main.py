@@ -333,6 +333,24 @@ def ensure_session_defaults() -> None:
 
     st.session_state["defaults_metadata"] = defaults
     st.session_state["_defaults_initialized"] = True
+
+# --- Utility helpers ---
+def _fmt(x):
+    """Consistent formatting for display values"""
+    if x is None or x == "" or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    if isinstance(x, float):
+        return f"{x:,.6g}"
+    if isinstance(x, int):
+        return f"{x:,}"
+    return str(x)
+
+def _derive_selected_approach_numbers(defaults: dict[str, Any]) -> tuple[Optional[float], Optional[float]]:
+    """Return (velocity_km_s, miss_distance_km) from selected close approach if present, else fallback to defaults."""
+    sel = defaults.get("close_approach_snapshot") or {}
+    v = sel.get("relative_velocity_km_s") or defaults.get("velocity_km_s")
+    d = sel.get("miss_distance_km") or defaults.get("miss_distance_km")
+    return v, d
 # ----------------------------
 # Simple physics helpers (educational approximations)
 # ----------------------------
@@ -737,75 +755,6 @@ with exp_tab:
         )
         field_sources = defaults_meta.get("field_sources") or {}
 
-        def _format_metric(value: Optional[float], digits: int = 3) -> str:
-            if value is None:
-                return "—"
-            if isinstance(value, float):
-                return f"{value:,.{digits}g}"
-            return str(value)
-
-        metric_specs = [
-            (t("labels.abs_magnitude") or "Abs magnitude (H)", "absolute_magnitude_h", 3),
-            (t("app.geom_albedo"), "albedo", 3),
-            (t("app.rotation_period_hr"), "rotation_period_hr", 3),
-            (t("app.miss_distance_km"), "miss_distance_km", 4),
-            (t("app.spectral_class"), "taxonomy", 3),
-        ]
-        metric_cols = st.columns(len(metric_specs))
-        for col, (label, key, digits) in zip(metric_cols, metric_specs):
-            display_value = defaults_meta.get(key)
-            if key == "taxonomy":
-                col.metric(label, display_value or "—")
-            else:
-                col.metric(label, _format_metric(display_value, digits))
-
-
-        with st.expander(t("expanders.white_paper_inputs"), expanded=False):
-                table_specs = [
-                    ("Absolute magnitude (H)", "absolute_magnitude_h", "mag"),
-                    ("Diameter max (m)", "diameter_m", "m"),
-                    (t("app.geom_albedo"), "albedo", ""),
-                    ("Bulk density (kg/m^3)", "density", "kg/m³"),
-                    (t("app.rotation_period_hr"), "rotation_period_hr", "hr"),
-                    (t("app.spectral_class"), "taxonomy", ""),
-                    ("Relative velocity (km/s)", "velocity_km_s", "km/s"),
-                    (t("app.miss_distance_km"), "miss_distance_km", "km"),
-                    ("Semi-major axis a (AU)", "semi_major_axis_au", "AU"),
-                    (t("labels.absolute_magnitude") or "Absolute magnitude (H)", "absolute_magnitude_h", "mag"),
-                    ("Eccentricity e", "eccentricity", ""),
-                    ("Inclination i (deg)", "inclination_deg", "°"),
-                    ("Argument of periapsis ω (deg)", "argument_of_periapsis_deg", "°"),
-                    ("Longitude ascending node Ω (deg)", "ascending_node_longitude_deg", "°"),
-                ]
-
-                def _format_table_value(raw_value: Any) -> str:
-                    if raw_value is None or raw_value == "":
-                        return "—"
-                    if isinstance(raw_value, int):
-                        return f"{raw_value:,}"
-                    if isinstance(raw_value, float):
-                        formatted = f"{raw_value:,.6g}"
-                        if formatted.startswith("."):
-                            formatted = "0" + formatted
-                        elif formatted.startswith("-."):
-                            formatted = formatted.replace("-.", "-0.", 1)
-                        return formatted
-                    return str(raw_value)
-
-                rows = []
-                for label, key, unit in table_specs:
-                    raw_value = defaults_meta.get(key)
-                    rows.append(
-                        {
-                            "Parameter": label,
-                            "Value": _format_table_value(raw_value),
-                            "Units": unit,
-                            "Source": field_sources.get(key, defaults_meta.get("provenance", "—")),
-                        }
-                    )
-
-                # use_container_width is the supported way to make the dataframe fill the layout
-                st.dataframe(pd.DataFrame(rows), use_container_width=True)
     primary_cols = st.columns(4)
     with primary_cols[0]:
         diameter_default = int(st.session_state.get("diameter_m", 150))
@@ -1005,6 +954,64 @@ with exp_tab:
                 crater_probability = float((sim_df["crater_km"] > 0).mean())
                 st.metric(t("metrics.probability_crater"), f"{crater_probability*100:.1f}%")
 
+    with st.expander("Use today's NASA NEOs as inputs"):
+        df = neo_df.copy()
+        if df.empty:
+            st.info(t("app.neo_fetch_unavailable") or "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
+        else:
+            # Derive average diameter and lunar-distance multiples for context
+            df = df.copy()
+            df["diameter_avg_m"] = 0.5 * (df["est_diameter_min_m"] + df["est_diameter_max_m"])
+            MOON_KM = 384_400.0
+            df["miss_distance_moon_x"] = df["miss_distance_km"] / MOON_KM
+
+            # Short, readable view
+            view_cols = ["name", "diameter_avg_m", "velocity_km_s", "miss_distance_km", "miss_distance_moon_x", "hazardous"]
+            st.dataframe(df[view_cols].rename(columns={
+                "diameter_avg_m": t("neo.cols.diameter_avg_m") or "diameter_avg_m (m)",
+                "miss_distance_km": t("neo.cols.miss_distance_km") or "miss_distance (km)",
+                "miss_distance_moon_x": t("neo.cols.miss_distance_moon_x") or "miss distance (× Moon)"
+            }))
+
+            # Pick one and push into the simulator
+            neo_options = ["— use custom values —"] + df["name"].tolist()
+            choice = st.selectbox(
+                "Pick an asteroid to simulate (what-if it hit):",
+                options=neo_options,
+                key="neo_choice"
+            )
+
+            if choice != "— use custom values —":
+                row = df.loc[df["name"] == choice].iloc[0]
+
+                diameter_value = row["diameter_avg_m"]
+                if diameter_value is None or pd.isna(diameter_value):
+                    diameter_value = st.session_state.get("diameter_m", 150)
+                diameter_value = int(np.clip(diameter_value, 10, 2000))
+
+                velocity_value = row["velocity_km_s"]
+                if velocity_value is None or pd.isna(velocity_value):
+                    velocity_value = st.session_state.get("velocity_km_s", 18.0)
+                velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
+
+                selected_source = st.session_state.get("_neo_autofill_source")
+                if selected_source != choice:
+                    st.session_state["_neo_autofill_source"] = choice
+                    st.session_state["widget_overrides"] = {
+                        "diameter_m": diameter_value,
+                        "velocity_km_s": velocity_value,
+                        "angle_deg": 45,
+                    }
+                    st.rerun()
+
+                # Preview metric based on the catalog row
+                mass = asteroid_mass_kg(row["diameter_avg_m"], density)
+                E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
+                st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
+            else:
+                if st.session_state.get("_neo_autofill_source"):
+                    st.session_state.pop("_neo_autofill_source")
+
     # Map visualization with crater and blast damage zones
     st.markdown("### Impact Visualization Map")
 
@@ -1020,7 +1027,6 @@ with exp_tab:
         "ring_densities": current_ring_densities,  # NEW
     }
 
-    st.markdown("### Map")
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
     def circle_layer(radius_km, color, name=""):
@@ -1088,65 +1094,6 @@ with exp_tab:
     - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
     - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
     """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
-
-    # --- PATCH 2: make NEOs usable + educational summaries ---
-    with st.expander("Use today's NASA NEOs as inputs"):
-        df = neo_df.copy()
-        if df.empty:
-            st.info(t("app.neo_fetch_unavailable") or "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
-        else:
-            # Derive average diameter and lunar-distance multiples for context
-            df = df.copy()
-            df["diameter_avg_m"] = 0.5 * (df["est_diameter_min_m"] + df["est_diameter_max_m"])
-            MOON_KM = 384_400.0
-            df["miss_distance_moon_x"] = df["miss_distance_km"] / MOON_KM
-
-            # Short, readable view
-            view_cols = ["name", "diameter_avg_m", "velocity_km_s", "miss_distance_km", "miss_distance_moon_x", "hazardous"]
-            st.dataframe(df[view_cols].rename(columns={
-                "diameter_avg_m": t("neo.cols.diameter_avg_m") or "diameter_avg_m (m)",
-                "miss_distance_km": t("neo.cols.miss_distance_km") or "miss_distance (km)",
-                "miss_distance_moon_x": t("neo.cols.miss_distance_moon_x") or "miss distance (× Moon)"
-            }))
-
-            # Pick one and push into the simulator
-            neo_options = ["— use custom values —"] + df["name"].tolist()
-            choice = st.selectbox(
-                "Pick an asteroid to simulate (what-if it hit):",
-                options=neo_options,
-                key="neo_choice"
-            )
-
-            if choice != "— use custom values —":
-                row = df.loc[df["name"] == choice].iloc[0]
-
-                diameter_value = row["diameter_avg_m"]
-                if diameter_value is None or pd.isna(diameter_value):
-                    diameter_value = st.session_state.get("diameter_m", 150)
-                diameter_value = int(np.clip(diameter_value, 10, 2000))
-
-                velocity_value = row["velocity_km_s"]
-                if velocity_value is None or pd.isna(velocity_value):
-                    velocity_value = st.session_state.get("velocity_km_s", 18.0)
-                velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
-
-                selected_source = st.session_state.get("_neo_autofill_source")
-                if selected_source != choice:
-                    st.session_state["_neo_autofill_source"] = choice
-                    st.session_state["widget_overrides"] = {
-                        "diameter_m": diameter_value,
-                        "velocity_km_s": velocity_value,
-                        "angle_deg": 45,
-                    }
-                    st.rerun()
-
-                # Preview metric based on the catalog row
-                mass = asteroid_mass_kg(row["diameter_avg_m"], density)
-                E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
-                st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
-            else:
-                if st.session_state.get("_neo_autofill_source"):
-                    st.session_state.pop("_neo_autofill_source")
 
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
@@ -1677,6 +1624,3 @@ if defaults_meta:
         unsafe_allow_html=True,
     )
 st.sidebar.info(t("sidebar.disclaimer") or "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data.")
-
-control_state_snapshot = gather_ui_control_state()
-print_startup_data_trace(defaults_meta or {}, control_state_snapshot)
