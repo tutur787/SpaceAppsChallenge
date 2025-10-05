@@ -786,6 +786,7 @@ with exp_tab:
             step=1,
             key="angle_deg",
         )
+        st.caption("10° = shallow (skips along), 90° = straight down")
     with primary_cols[3]:
         material_options = list(MATERIAL_PRESETS.keys())
         default_material = st.session_state.get("material_preset", defaults_meta.get("material", material_options[1]))
@@ -875,33 +876,74 @@ with exp_tab:
     Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
 
     st.markdown("### " + t("app.results"))
+    show_confidence = st.checkbox("Show confidence levels", value=False)
     cols = st.columns(4)
-    cols[0].metric(t("metrics.mass"), f"{m:,.0f} kg")
-    cols[1].metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
-    cols[2].metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
-    cols[3].metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
+
+    with cols[0]:
+        st.metric(t("metrics.mass"), f"{m:,.0f} kg")
+        if show_confidence:
+            st.caption("Confidence: ✅ High (direct calculation)")
+
+    with cols[1]:
+        st.metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
+        if show_confidence:
+            st.caption("Confidence: ✅ High (formula-based)")
+
+    with cols[2]:
+        st.metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (simplified atmospheric breakup model)")
+
+    with cols[3]:
+        st.metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (approximate fraction)")
 
     crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else t("app.airburst")
-    cols2 = st.columns(4)
-    cols2[0].metric(t("metrics.crater"), crater_display)
-    cols2[1].metric(t("metrics.severe_radius"), f"{r_severe:.2f} km")
-    cols2[2].metric(t("metrics.moderate_radius"), f"{r_mod:.2f} km")
-    cols2[3].metric(t("metrics.light_radius"), f"{r_light:.2f} km")
 
-    cols3 = st.columns(3)
-    # PAIR uses 4-psi damage radius as the primary metric (white paper Section 2.3, line 236)
-    # 4-psi is a full circle, not a ring, so we need to calculate the total area within r_mod
+    cols2 = st.columns(4)
+
+    with cols2[0]:
+        st.metric(t("metrics.crater"), crater_display)
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (simple scaling law)")
+
+    with cols2[1]:
+        st.metric(t("metrics.severe_radius"), f"{r_severe:.2f} km")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)")
+
+    with cols2[2]:
+        st.metric(t("metrics.moderate_radius"), f"{r_mod:.2f} km")
+
+    with cols2[3]:
+        st.metric(t("metrics.light_radius"), f"{r_light:.2f} km")
+
+    # Combined caption for the radii group
+    if show_confidence:
+        st.caption("Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)")
+
     pair_damage_area_km2 = math.pi * max(r_mod, 0.0) ** 2
-    # Use the city/fallback density for the 4-psi region
     if preset in CITY_RING_DENSITY:
         pair_density = CITY_RING_DENSITY[preset].get("moderate", DEFAULT_RING_DENSITY["moderate"])
     else:
         pair_density = DEFAULT_RING_DENSITY["moderate"]
     pair_affected_population_4psi = pair_damage_area_km2 * pair_density
 
-    cols3[0].metric("Population in 4-psi zone", f"{pair_affected_population_4psi:,.0f}")
-    cols3[1].metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
-    cols3[2].metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
+    cols3 = st.columns(3)
+
+    with cols3[0]:
+        st.metric("Population in 4-psi zone", f"{pair_affected_population_4psi:,.0f}")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Low (coarse population overlay)")
+
+    with cols3[1]:
+        st.metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
+
+    with cols3[2]:
+        st.metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
+        if show_confidence:
+            st.caption("Confidence: ⚠️ Medium (energy-to-seismic conversion rough estimate)")
 
     with st.expander("Damage assessment details"):
         # PAIR uses 4-psi as the primary damage threshold (full circle, not a ring)
@@ -1167,34 +1209,39 @@ with defend_tab:
     casualty_diff = new_casualties - casualties
 
     # --- Comparison Table ---
+    params = [
+        "Impact latitude", "Impact longitude",
+        "Breakup altitude (km)",
+        "Kinetic energy (Mt TNT)", "Ground-coupled energy (Mt TNT)",
+        "Crater diameter (km)",
+        "Severe radius (12 psi, km)", "Moderate radius (4 psi, km)", "Light radius (1 psi, km)",
+        "Seismic magnitude (Mw)",
+    ]
+    before_vals = [
+        f"{base_lat:.3f}", f"{base_lon:.3f}",
+        f"{burst_alt_km_base:.1f}",
+        f"{E_mt_base:.2f}", f"{E_ground_mt_base:.2f}",
+        f"{crater_km_base:.2f}" if crater_km_base > 0 else "Airburst",
+        f"{r12_base:.2f}", f"{r4_base:.2f}", f"{r1_base:.2f}",
+        f"{Mw_base:.1f}" if Mw_base else "n/a",
+    ]
+    after_vals = [
+        f"{new_lat:.3f}", f"{new_lon:.3f}",
+        f"{burst_alt_km:.1f}",
+        f"{E_mt:.2f}", f"{E_ground_mt:.2f}",
+        f"{crater_km:.2f}" if crater_km > 0 else "Airburst",
+        f"{r12:.2f}", f"{r4:.2f}", f"{r1:.2f}",
+        f"{Mw:.1f}" if Mw else "n/a",
+    ]
+    if st.session_state.get("show_sensitive", True):
+        params.append("People likely to need help (very rough)")
+        before_vals.append(f"{casualties:,.1f}" if casualties else "n/a")
+        after_vals.append(f"{new_casualties:,.1f}" if new_casualties else "n/a")
+
     comp = pd.DataFrame({
-        "Parameter": [
-            "Impact latitude", "Impact longitude",
-            "Breakup altitude (km)",
-            "Kinetic energy (Mt TNT)", "Ground-coupled energy (Mt TNT)",
-            "Crater diameter (km)",
-            "Severe radius (12 psi, km)", "Moderate radius (4 psi, km)", "Light radius (1 psi, km)",
-            "Seismic magnitude (Mw)",
-            "Estimated casualties",
-        ],
-        "Before (original)": [
-            f"{base_lat:.3f}", f"{base_lon:.3f}",
-            f"{burst_alt_km_base:.1f}",
-            f"{E_mt_base:.2f}", f"{E_ground_mt_base:.2f}",
-            f"{crater_km_base:.2f}" if crater_km_base > 0 else "Airburst",
-            f"{r12_base:.2f}", f"{r4_base:.2f}", f"{r1_base:.2f}",
-            f"{Mw_base:.1f}" if Mw_base else "n/a",
-            f"{casualties:.1f}" if casualties else "n/a",
-        ],
-        "After (deflected)": [
-            f"{new_lat:.3f}", f"{new_lon:.3f}",
-            f"{burst_alt_km:.1f}",
-            f"{E_mt:.2f}", f"{E_ground_mt:.2f}",
-            f"{crater_km:.2f}" if crater_km > 0 else "Airburst",
-            f"{r12:.2f}", f"{r4:.2f}", f"{r1:.2f}",
-            f"{Mw:.1f}" if Mw else "n/a",
-            f"{new_casualties:.1f}" if new_casualties else "n/a",
-        ]
+        "Parameter": params,
+        "Before (original)": before_vals,
+        "After (deflected)": after_vals,
     })
     st.markdown("### 🌍 Before vs After Deflection")
     st.dataframe(comp, use_container_width=True)
@@ -1251,13 +1298,7 @@ with defend_tab:
     st.caption("Red = original impact | Green = deflected impact. Adjust Δv and lead time to see how even small pushes can change where — and how severely — an asteroid hits Earth.")
 
 with learn_tab:
-    import streamlit as st
-
     st.subheader("Asteroid Impact Glossary")
-
-
-
-
     # --------------------------
     # Your glossary JSON (pasted as-is)
     # --------------------------
@@ -1529,14 +1570,14 @@ with learn_tab:
         with st.container(border=True):
             st.markdown(f"**{eq['term']}**")
             with st.expander("Details", expanded=st.session_state[key]):
-                # Equations
+                # Equations (plain-text for K-12 readability; LaTeX not required)
                 if isinstance(eq["Equation"], list):
                     st.markdown("**Equation(s):**")
                     for e in eq["Equation"]:
-                        st.latex(e)
+                        st.code(e)
                 else:
                     st.markdown("**Equation:**")
-                    st.latex(eq["Equation"])
+                    st.code(eq["Equation"])
                 # Output
                 st.markdown(f"**Output:** {eq['Output']}")
                 # Variables
@@ -1601,6 +1642,14 @@ selected_lang = st.sidebar.selectbox(
     key="language_selector"
 )
 
+# Classroom-friendly toggle for sensitive content
+show_sensitive = st.sidebar.checkbox(
+    "Censor sensitive content",
+    value=False,
+    help="Turn on to display very rough counts of people who could be hurt. For classroom use only."
+)
+st.session_state["show_sensitive"] = show_sensitive
+
 # Update language if changed
 if selected_lang != current_lang:
     set_lang(selected_lang)
@@ -1623,4 +1672,5 @@ if defaults_meta:
         + "<br>" + t("sidebar.density", dens=density_val or 0.0),
         unsafe_allow_html=True,
     )
+st.sidebar.info("K-12 mode: We use simple, age-appropriate language and avoid graphic details. Toggle **advanced impact-health estimates** above if needed.")
 st.sidebar.info(t("sidebar.disclaimer") or "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data.")
