@@ -1120,8 +1120,6 @@ with exp_tab:
             if choice != "— use custom values —":
                 row = df.loc[df["name"] == choice].iloc[0]
 
-
-                # Automatically update sliders when selection changes
                 diameter_value = row["diameter_avg_m"]
                 if diameter_value is None or pd.isna(diameter_value):
                     diameter_value = st.session_state.get("diameter_m", 150)
@@ -1132,21 +1130,23 @@ with exp_tab:
                     velocity_value = st.session_state.get("velocity_km_s", 18.0)
                 velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
 
-                # Check if values need updating
-                if (st.session_state.get("diameter_m") != diameter_value or
-                    st.session_state.get("velocity_km_s") != velocity_value):
-                    override_values = {
+                selected_source = st.session_state.get("_neo_autofill_source")
+                if selected_source != choice:
+                    st.session_state["_neo_autofill_source"] = choice
+                    st.session_state["widget_overrides"] = {
                         "diameter_m": diameter_value,
                         "velocity_km_s": velocity_value,
                         "angle_deg": 45,
                     }
-                    st.session_state["widget_overrides"] = override_values
                     st.rerun()
 
-                # Preview metric
+                # Preview metric based on the catalog row
                 mass = asteroid_mass_kg(row["diameter_avg_m"], density)
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
                 st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
+            else:
+                if st.session_state.get("_neo_autofill_source"):
+                    st.session_state.pop("_neo_autofill_source")
 
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
