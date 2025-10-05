@@ -23,35 +23,35 @@ class SBDBError(RuntimeError):
 
 
 MATERIAL_PRESETS = {
-    "Carbonaceous chondrite": {"density": 1500, "strength_mpa": 1.0},
-    "Stony (ordinary chondrite)": {"density": 3000, "strength_mpa": 10.0},
-    "Iron-nickel": {"density": 7800, "strength_mpa": 50.0},
-    "Cometary (icy)": {"density": 600, "strength_mpa": 0.3},
+    "carbonaceous_chondrite": {"density": 1500, "strength_mpa": 1.0},
+    "stony_chondrite": {"density": 3000, "strength_mpa": 10.0},
+    "iron_nickel": {"density": 7800, "strength_mpa": 50.0},
+    "cometary_icy": {"density": 600, "strength_mpa": 0.3},
 }
 
 
 TAXONOMY_TO_PRESET = {
-    "A": "Stony (ordinary chondrite)",
-    "B": "Carbonaceous chondrite",
-    "C": "Carbonaceous chondrite",
-    "D": "Cometary (icy)",
-    "E": "Iron-nickel",
-    "F": "Carbonaceous chondrite",
-    "G": "Carbonaceous chondrite",
-    "I": "Iron-nickel",
-    "K": "Stony (ordinary chondrite)",
-    "L": "Stony (ordinary chondrite)",
-    "M": "Iron-nickel",
-    "O": "Stony (ordinary chondrite)",
-    "P": "Cometary (icy)",
-    "Q": "Stony (ordinary chondrite)",
-    "R": "Stony (ordinary chondrite)",
-    "S": "Stony (ordinary chondrite)",
-    "T": "Carbonaceous chondrite",
-    "U": "Stony (ordinary chondrite)",
-    "V": "Stony (ordinary chondrite)",
-    "X": "Iron-nickel",
-    "Z": "Carbonaceous chondrite",
+    "A": "stony_chondrite",
+    "B": "carbonaceous_chondrite",
+    "C": "carbonaceous_chondrite",
+    "D": "cometary_icy",
+    "E": "iron_nickel",
+    "F": "carbonaceous_chondrite",
+    "G": "carbonaceous_chondrite",
+    "I": "iron_nickel",
+    "K": "stony_chondrite",
+    "L": "stony_chondrite",
+    "M": "iron_nickel",
+    "O": "stony_chondrite",
+    "P": "cometary_icy",
+    "Q": "stony_chondrite",
+    "R": "stony_chondrite",
+    "S": "stony_chondrite",
+    "T": "carbonaceous_chondrite",
+    "U": "stony_chondrite",
+    "V": "stony_chondrite",
+    "X": "iron_nickel",
+    "Z": "carbonaceous_chondrite",
 }
 
 
@@ -89,12 +89,12 @@ def _select_close_approach(neo_payload: Dict[str, Any]) -> Tuple[Optional[float]
 
 def material_from_taxonomy(spec: Optional[str]) -> str:
     if not spec:
-        return "Stony (ordinary chondrite)"
+        return "stony_chondrite"
     key = spec.strip().upper()
     preset = TAXONOMY_TO_PRESET.get(key)
     if not preset and key:
         preset = TAXONOMY_TO_PRESET.get(key[0])
-    return preset or "Stony (ordinary chondrite)"
+    return preset or "stony_chondrite"
 
 
 def normalize_sbdb_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -174,9 +174,9 @@ def get_reference_defaults(
     defaults: Dict[str, Any] = {
         "diameter_m": 150,
         "velocity_km_s": 18.0,
-        "material": "Stony (ordinary chondrite)",
-        "density": MATERIAL_PRESETS["Stony (ordinary chondrite)"]["density"],
-        "strength_mpa": MATERIAL_PRESETS["Stony (ordinary chondrite)"]["strength_mpa"],
+        "material": "stony_chondrite",
+        "density": MATERIAL_PRESETS["stony_chondrite"]["density"],
+        "strength_mpa": MATERIAL_PRESETS["stony_chondrite"]["strength_mpa"],
         "source": "synthetic fallback",
     }
 
