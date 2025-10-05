@@ -1,0 +1,158 @@
+{
+  "app": {
+    "title": "🛰️ 衝擊器-2025：學習與模擬",
+    "caption": "一個用於探索小行星衝擊的教育型儀表板（黑客松專案）。",
+    "where_hit": "撞擊地點？選擇城市或輸入座標。",
+    "results": "結果",
+    "run_sim_button": "執行模擬",
+    "simulation_no_scenarios": "模擬未產生情景。",
+    "samples_label": "蒙地卡羅抽樣數量",
+    "city_preset": "城市預設",
+    "choose_params": "選擇撞擊參數",
+    "about_sidebar": "關於此 MVP",
+    "key_outcome_quantiles": "關鍵結果分位數",
+    "map": "地圖",
+    "adjust_strength_caption": "調整以模擬 PAIR 進入模型所使用的凝聚強度。",
+    "deflection_title": "嘗試偏轉策略 ✨",
+    "default_from_provenance": "預設來源：{prov}，密度 {dens} kg/m³",
+    "preset_density_for": "{material} 的預設密度：{dens} kg/m³",
+    "population_estimates_note": "人口估計依賴記錄化的合成密度環，若爆炸環消失則退回到撞擊坑面積；可用實際數據層替換。",
+    "pair_sample_explain": "使用 PAIR 蒙地卡羅方法對不確定性（直徑、密度、角度、強度）進行抽樣以探索結果分佈。",
+    "pair_note": "PAIR = Probabilistic Asteroid Impact Risk（Mathias et al., 2017）。請根據任務使用專門先驗分佈替換本示例。",
+    "sbdb_lookup_failed": "SBDB 查詢失敗：{err}",
+    "geom_albedo": "幾何反照率",
+    "rotation_period_hr": "自轉週期 (小時)",
+    "miss_distance_km": "最近距離 (km)",
+    "spectral_class": "光譜類別",
+    "neo_selected_caption": "已選擇 **{name}** — 平均直徑 ≈ {diameter} m，速度 ≈ {speed} km/s，近距離 ≈ {miss_km} km（約 {moonx} 倍月球距離）。",
+    "neo_fetch_unavailable": "目前無法取得 NEO（API 限制或離線）。您仍可使用模擬器。",
+    "neo_pick_prompt": "選擇要模擬（假設撞擊）的近地小行星：",
+    "use_neo_button": "在模擬器中使用此 NEO",
+    "preview_caption": "預覽採用目前的密度／材料設定。",
+    "airburst": "空中爆炸",
+    "na": "不適用",
+    "explore": "探索",
+    "defend_earth": "保衛地球",
+    "learn_label": "學習",
+    "show_confidence": "顯示信心水準",
+    "confidence_high_direct": "信心: ✅ 高 (直接計算)",
+    "confidence_high_formula": "信心: ✅ 高 (公式計算)",
+    "confidence_medium_breakup": "信心: ⚠️ 中 (簡化大氣層分裂模型)",
+    "confidence_medium_fraction": "信心: ⚠️ 中 (近似分數)",
+    "confidence_medium_scaling": "信心: ⚠️ 中 (簡單比例法則)",
+    "confidence_medium_low_blast": "信心: ⚠️ 中低 (爆炸比例，僅數量級)",
+    "confidence_low_population": "信心: ⚠️ 低 (粗略人口覆蓋)",
+    "confidence_medium_seismic": "信心: ⚠️ 中 (能量至地震轉換粗估)",
+    "map_legend": "**地圖圖例:**\n- 🟡 **黃點**: 撞擊點\n- ⚫ **黑圈**: 撞擊坑 ({crater_km} 公里直徑)\n- 🔴 **深紅區**: 12-psi 超壓 (嚴重損壞, {r_severe} 公里半徑)\n- 🔴 **紅區**: 4-psi 超壓 (PAIR 損壞閾值, {r_mod} 公里半徑)\n- 🟠 **橘區**: 1-psi 超壓 (輕微損壞, {r_light} 公里半徑)",
+    "damage_assessment_details": "損害評估詳情",
+    "probabilistic_scenarios": "機率情境",
+    "use_today_neos": "使用今日 NASA NEO 作為輸入",
+    "angle_caption": "10° = 淺層 (掠過), 90° = 垂直向下",
+    "blast_overpressure_rings": "**爆炸超壓環:**"
+  },
+  "expanders": {
+    "white_paper_inputs": "來自 NASA/SBDB 的白皮書輸入",
+    "synthetic_exposure": "合成暴露細目",
+    "pair_scenarios": "PAIR 概似情境",
+    "use_today_neos": "使用今日 NASA NEO 作為輸入"
+  },
+  "sidebar": {
+    "about_title": "關於此 MVP",
+    "default_object": "預設物件：{name}",
+    "source": "來源：{src}",
+    "spectral": "光譜類別：{tax}",
+    "density": "密度：{dens:,.0f} kg/m³",
+    "disclaimer": "這是一個教育性示範。數值為近似值。如需實務決策，請使用官方模型與資料。",
+    "language_label": "語言"
+  },
+  "learn": {
+    "glossary_title": "詞彙與教學資源",
+    "learn_text": "**動能** — 運動的能量。我們以 **百萬噸 TNT** 為單位方便比較。\n\n**撞擊坑** — 一個碗狀凹洞。此估算為教學簡化。\n\n**偏移（Δv）** — 提前小幅推動能讓小行星改道，避免撞地球。\n\n**為何簡化？** — 真實研究使用更複雜模型（空爆、碎裂、地形、海洋）。\n我們的目標是先**學習概念**——之後可加入更進階物理。",
+    "see_all_definitions": "📖 查看所有定義",
+    "details": "詳情",
+    "important_equations_title": "## 重要方程式",
+    "see_all_equations": "📖 查看所有方程式",
+    "equations_title": "**方程式:**",
+    "equation_title": "**方程式:**",
+    "output_title": "**輸出:** {output}",
+    "variables_title": "**變數:**",
+    "reference": "**參考資料:** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). Earth Impact Effects Program: A tool for calculating the regional environmental consequences of a meteoroid impact on Earth. *Icarus*. [https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
+  },
+  "app_extra": {
+    "where_to_extend": "可延伸項目（黑客松任務）"
+  },
+  "deflect": {
+    "caption": "偏轉視覺化沿用相同的損害模型；連結空間資料集即可重新計算偏移後的暴露。",
+    "delta_v_label": "Δv (mm/s)",
+    "lead_time_label": "提前時間 (年)",
+    "bearing_label": "入射方位（°）",
+    "no_scenario_warning": "⚠️ 請先在 **探索** 標籤中建立一個小行星場景。",
+    "success_message": "✅ 偏轉成功！小行星在交會時與地球錯開約 {shift_km} 公里。",
+    "success_info": "嘗試較小的 Δv 或較短的提前時間，以找到仍然能避免撞擊的最小推力。",
+    "failure_message": "⚠️ 仍在撞擊軌道上。地面位移 ≈ {shift_km} 公里。",
+    "people_help_label": "可能需要幫助的人（非常粗略）",
+    "before_after_title": "### 🌍 偏轉前後",
+    "map_caption": "紅色 = 原始撞擊 | 綠色 = 偏轉後撞擊。調整 Δv 和提前時間，看看即使是微小的推動也能改變小行星撞擊地球的位置和嚴重程度。"
+  },
+  "neo": {
+    "cols": {
+      "diameter_avg_m": "平均直徑 (m)",
+      "miss_distance_km": "掠過距離 (km)",
+      "miss_distance_moon_x": "掠過距離 (× 月距)"
+    }
+  },
+  "snapshot": {
+    "impact_lat_used": "使用的撞擊緯度",
+    "impact_lon_used": "使用的撞擊經度"
+  },
+  "metrics": {
+    "whatif_preview": "假設情境能量（預覽）",
+    "mass": "質量",
+    "energy": "動能",
+    "breakup_alt": "解體高度",
+    "ground_energy": "地面耦合能量",
+    "crater": "最終撞擊坑直徑",
+    "severe_radius": "嚴重半徑（12 psi）",
+    "moderate_radius": "中等半徑（4 psi）",
+    "light_radius": "輕微半徑（1 psi）",
+    "population_exposed": "暴露人口",
+    "estimated_casualties": "估計傷亡",
+    "seismic_mw": "地震 Mw",
+    "probability_crater": "形成撞擊坑的機率",
+    "damage_radius_4psi": "損壞半徑 (4-psi)",
+    "damage_area_full_circle": "損壞區域 (全圓)",
+    "population": "人口"
+  },
+  "labels": {
+    "diameter": "小行星直徑（m）",
+    "velocity": "撞擊速度（km/s）",
+    "angle": "撞擊角度（°）",
+    "material": "材料預設",
+    "density": "體積密度（kg/m³）",
+    "strength": "抗壓強度（MPa）",
+    "latitude": "緯度",
+    "longitude": "經度",
+    "monte_carlo": "蒙地卡羅抽樣數",
+    "abs_magnitude": "絕對星等 (H)",
+    "absolute_magnitude": "絕對星等 (H)"
+  },
+  "cities": {
+    "choose_a_place": "— 選擇一個地方 —",
+    "kaohsiung_city_taiwan": "台灣高雄市",
+    "mulhouse_france": "米盧斯, 法國",
+    "mexicali_mexico": "墨西卡利, 墨西哥",
+    "quebec_city_canada": "魁北克市, 加拿大",
+    "bangkok_thailand": "曼谷, 泰國"
+  },
+  "materials": {
+    "carbonaceous_chondrite": "碳質球粒隕石",
+    "stony_chondrite": "石質（普通球粒隕石）",
+    "iron_nickel": "鐵鎳",
+    "cometary_icy": "彗星（冰質）"
+  },
+  "meta": {
+    "language_code": "zh-Hant",
+    "language_native": "繁體中文",
+    "language_english": "Traditional Chinese"
+  }
+}

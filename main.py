@@ -24,7 +24,6 @@ import streamlit as st
 import pydeck as pdk
 
 from src.i18n import t, set_lang, get_lang, get_language_label, AVAILABLE_LANGS
-from src.background import render_nextjs_background
 
 from src.api.nasa_neo import NeoWsClient, NeoWsError
 from src.data.defaults import (
@@ -710,10 +709,7 @@ def fetch_today_neos() -> pd.DataFrame:
 # ----------------------------
 # UI
 # ----------------------------
-st.set_page_config(page_title=t("app.title"), layout="wide")
-
-# Render Next.js background
-render_nextjs_background()
+st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
 
 # Language selector (default to English). Stored in session_state to persist across interactions.
 if "lang" not in st.session_state:
@@ -730,7 +726,7 @@ if "lang" not in st.session_state:
         set_lang("en")
         st.session_state["lang"] = "en"
 
-st.title(t("app.title"))
+st.title("🛰️ Impactor-2025: Learn & Simulate")
 
 # Initialize session defaults
 ensure_session_defaults()
@@ -804,7 +800,7 @@ with exp_tab:
 
         diameter_default = int(st.session_state.get("diameter_m", 150))
         diameter_m = st.slider(
-            t("labels.diameter"),
+            "Asteroid diameter (m)",
             min_value=10,
             max_value=2000,
             value=diameter_default,
@@ -814,7 +810,7 @@ with exp_tab:
 
         velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
         velocity = st.slider(
-            t("labels.velocity"),
+            "Velocity at impact (km/s)",
             min_value=5.0,
             max_value=70.0,
             value=velocity_default,
@@ -824,22 +820,22 @@ with exp_tab:
 
         angle_default = int(st.session_state.get("angle_deg", 45))
         angle = st.slider(
-            t("labels.angle"),
+            "Impact angle (°)",
             min_value=10,
             max_value=90,
             value=angle_default,
             step=1,
             key="angle_deg",
         )
-        st.caption(t("app.angle_caption"))
+        st.caption("10° = shallow (skips along), 90° = straight down")
 
         material_options = list(MATERIAL_PRESETS.keys())
-        default_material_key = st.session_state.get(
+        default_material = st.session_state.get(
             "material_preset",
             defaults_meta.get("material", material_options[1])
         )
         try:
-            material_index = material_options.index(default_material_key)
+            material_index = material_options.index(default_material)
         except ValueError:
             material_index = 1
         material = st.selectbox(
@@ -847,7 +843,6 @@ with exp_tab:
             material_options,
             index=material_index,
             key="material_preset",
-            format_func=lambda key: t(f"materials.{key}", default=key),
         )
 
         preset_density = MATERIAL_PRESETS[material]["density"]
@@ -872,12 +867,7 @@ with exp_tab:
         )
 
         st.markdown("**" + t("app.where_hit") + "**")
-        preset = st.selectbox(
-            t("app.city_preset"), 
-            list(CITY_PRESETS.keys()), 
-            key="city_preset",
-            format_func=lambda key: t(f"cities.{key}", default=key)
-        )
+        preset = st.selectbox(t("app.city_preset"), list(CITY_PRESETS.keys()), key="city_preset")
         if preset and CITY_PRESETS[preset][0] is not None:
             lat, lon = CITY_PRESETS[preset]
         else:
@@ -935,28 +925,28 @@ with exp_tab:
     pair_affected_population_4psi = pair_damage_area_km2 * pair_density
 
     st.markdown("### " + t("app.results"))
-    show_confidence = st.checkbox(t("app.show_confidence"), value=False)
+    show_confidence = st.checkbox("Show confidence levels", value=False)
 
     core_cols = st.columns(4)
     with core_cols[0]:
         st.metric(t("metrics.mass"), f"{m:,.0f} kg")
         if show_confidence:
-            st.caption(t("app.confidence_high_direct"))
+            st.caption("Confidence: ✅ High (direct calculation)")
 
     with core_cols[1]:
         st.metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
         if show_confidence:
-            st.caption(t("app.confidence_high_formula"))
+            st.caption("Confidence: ✅ High (formula-based)")
 
     with core_cols[2]:
         st.metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
         if show_confidence:
-            st.caption(t("app.confidence_medium_breakup"))
+            st.caption("Confidence: ⚠️ Medium (simplified atmospheric breakup model)")
 
     with core_cols[3]:
         st.metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
         if show_confidence:
-            st.caption(t("app.confidence_medium_fraction"))
+            st.caption("Confidence: ⚠️ Medium (approximate fraction)")
 
     crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else t("app.airburst")
 
@@ -1123,7 +1113,14 @@ with exp_tab:
 
     st.pydeck_chart(deck)
 
-    st.markdown(t("app.map_legend", crater_km=f"{crater_km:.2f}", r_severe=f"{r_severe:.1f}", r_mod=f"{r_mod:.1f}", r_light=f"{r_light:.1f}"))
+    st.markdown("""
+    **Map Legend:**
+    - 🟡 **Yellow dot**: Impact point
+    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
+    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
+    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
+    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
+    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
 
     with st.expander("Damage assessment details"):
         pair_damage_radius_km = r_mod
@@ -1697,8 +1694,14 @@ with learn_tab:
     st.divider()
 
     st.markdown(
-        "**Reference:** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). "
-        "Earth Impact Effects Program: A tool for calculating the regional environmental consequences "
-        "of a meteoroid impact on Earth. *Icarus*. "
-        "[https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
+        """
+        ### 🛠️ Future Classroom Add-Ons (Hackathon Ideas)
+        - 🗺️ **USGS / NASA layers:** overlay coastlines, fault zones, or elevation for tsunami risk.
+        - 👥 **Population exposure:** visualize how many people live near the impact area.
+        - 🌡️ **Atmospheric effects:** add fireball brightness or shock-wave timing.
+        - ☀️ **3D orbit view:** show the asteroid’s path around the Sun using Plotly 3D or Three.js.
+        - 🎮 **Game mode:** give students missions — *“Save Earth with ≤ 1 mm/s Δv!”*
+        """
     )
+
+    st.caption("Educational mode: simplified for learning. Data and models inspired by NASA, ESA, and academic impact simulations.")
