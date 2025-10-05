@@ -1702,5 +1702,3 @@ with learn_tab:
         "of a meteoroid impact on Earth. *Icarus*. "
         "[https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
     )
-
-    st.caption("Educational mode: simplified for learning. Data and models inspired by NASA, ESA, and academic impact simulations.")
