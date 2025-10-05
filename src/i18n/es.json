@@ -1,0 +1,110 @@
+{
+  "app": {
+    "title": "🛰️ Impactor-2025: Aprender y Simular",
+    "caption": "Un panel educativo para explorar impactos de asteroides, creado para un hackathon.",
+    "where_hit": "¿Dónde cae? Elija una ciudad o ingrese coordenadas.",
+    "results": "Resultados",
+    "run_sim_button": "Ejecutar simulación",
+    "simulation_no_scenarios": "La simulación no devolvió escenarios.",
+    "samples_label": "Número de muestras Monte Carlo",
+    "city_preset": "Ciudad",
+    "choose_params": "Elija parámetros de impacto",
+    "about_sidebar": "Acerca de este MVP",
+    "key_outcome_quantiles": "Cuantiles clave de resultados",
+    "map": "Mapa",
+    "default_from_provenance": "Por defecto de {prov}: {dens} kg/m³",
+    "preset_density_for": "Densidad por defecto para {material}: {dens} kg/m³",
+    "population_estimates_note": "Las estimaciones de población se basan en anillos sintéticos documentados y retroceden a la huella del cráter cuando los anillos de explosión desaparecen; reemplácese por conjuntos de datos reales cuando estén disponibles.",
+    "pair_sample_explain": "Muestree propiedades inciertas (diámetro, densidad, ángulo, resistencia) usando el enfoque Monte Carlo PAIR para explorar distribuciones de resultados.",
+    "pair_note": "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Reemplace las distribuciones asumidas por priors específicos de la misión cuando sea necesario.",
+    "sbdb_lookup_failed": "La consulta SBDB falló: {err}",
+    "geom_albedo": "Albedo geom.",
+    "rotation_period_hr": "Periodo de rotación (hr)",
+    "miss_distance_km": "Distancia de paso (km)",
+    "spectral_class": "Clase espectral",
+    "neo_selected_caption": "Seleccionado **{name}** — diámetro medio ≈ {diameter} m, velocidad ≈ {speed} km/s, distancia de paso ≈ {miss_km} km (~{moonx}× Luna).",
+    "adjust_strength_caption": "Ajusta para emular la resistencia cohesiva usada en el modelo de entrada PAIR.",
+    "deflection_title": "Prueba una estrategia de desvío ✨",
+    "neo_fetch_unavailable": "No se pudieron obtener NEO en este momento (límite de API o sin conexión). Aun así puedes usar el simulador.",
+    "neo_pick_prompt": "Elige un asteroide para simular (si llegara a impactar):",
+    "use_neo_button": "Usar este NEO en el simulador",
+    "preview_caption": "La vista previa asume la densidad/material actuales.",
+    "airburst": "Explosión aérea",
+    "na": "n/a",
+    "explore": "Explorar",
+    "defend_earth": "Defender la Tierra",
+    "learn_label": "Aprender"
+  },
+  "expanders": {
+    "white_paper_inputs": "Entradas del white paper desde NASA/SBDB",
+    "synthetic_exposure": "Desglose de exposición sintética",
+    "pair_scenarios": "Escenarios probabilísticos inspirados en PAIR",
+    "use_today_neos": "Usar los NEO de NASA de hoy como entradas"
+  },
+  "sidebar": {
+    "about_title": "Acerca de este MVP",
+    "default_object": "Objeto por defecto: {name}",
+    "source": "Fuente: {src}",
+    "spectral": "Clase espectral: {tax}",
+    "density": "Densidad: {dens:,.0f} kg/m³",
+    "disclaimer": "Esta es una demostración educativa. Los números son aproximados. Para decisiones reales, consulte modelos y datos oficiales.",
+    "language_label": "Idioma"
+  },
+  "learn": {
+    "glossary_title": "Glosario y recursos didácticos",
+    "learn_text": "**Energía cinética** — Energía del movimiento. La convertimos a **megatoneladas de TNT** para facilitar la comparación.\n\n**Cráter** — Un hueco en forma de cuenco. Nuestra estimación está simplificada para aprendizaje.\n\n**Deflexión (Δv)** — Un pequeño empujón con mucha anticipación puede mover un asteroide lo suficiente como para evitar la Tierra.\n\n**¿Por qué simplificado?** — Los científicos usan modelos más complejos (estallidos en aire, fragmentación, terreno, océanos).\nNuestro objetivo es **aprender las ideas** primero — luego puedes añadir física avanzada."
+  },
+  "app_extra": {
+    "where_to_extend": "Dónde ampliar (tareas del hackathon)"
+  },
+  "deflect": {
+    "caption": "La visualización de desvío conserva el mismo modelo de daños; conéctala a datos espaciales para recalcular la exposición del nuevo punto de impacto.",
+    "delta_v_label": "Δv (mm/s)",
+    "lead_time_label": "Tiempo de anticipación (días)",
+    "bearing_label": "Rumbo de llegada (°)"
+  },
+  "neo": {
+    "cols": {
+      "diameter_avg_m": "diámetro_prom_m (m)",
+      "miss_distance_km": "distancia_paso_km",
+      "miss_distance_moon_x": "distancia_paso (× Luna)"
+    }
+  },
+  "labels": {
+    "diameter": "Diámetro del asteroide (m)",
+    "velocity": "Velocidad al impactar (km/s)",
+    "angle": "Ángulo de impacto (°)",
+    "material": "Material",
+    "density": "Densidad (kg/m³)",
+    "strength": "Resistencia (MPa)",
+    "latitude": "Latitud",
+    "longitude": "Longitud",
+    "monte_carlo": "Número de muestras Monte Carlo",
+    "abs_magnitude": "Magnitud absoluta (H)",
+    "absolute_magnitude": "Magnitud absoluta (H)"
+  },
+  "snapshot": {
+    "impact_lat_used": "Latitud de impacto (usada)",
+    "impact_lon_used": "Longitud de impacto (usada)"
+  },
+  "metrics": {
+    "whatif_preview": "Energía hipotética (vista previa)",
+    "mass": "Masa",
+    "energy": "Energía cinética",
+    "breakup_alt": "Altitud de ruptura",
+    "ground_energy": "Energía acoplada al suelo",
+    "crater": "Diámetro del cráter (final)",
+    "severe_radius": "Radio severo (12 psi)",
+    "moderate_radius": "Radio moderado (4 psi)",
+    "light_radius": "Radio ligero (1 psi)",
+    "population_exposed": "Población expuesta",
+    "estimated_casualties": "Bajas estimadas",
+    "seismic_mw": "Momento sísmico Mw",
+    "probability_crater": "Probabilidad de formación de cráter"
+  },
+  "meta": {
+    "language_code": "es",
+    "language_native": "Español",
+    "language_english": "Spanish"
+  }
+}
