@@ -77,25 +77,24 @@ SYNTHETIC_CASUALTY_RATE = {
 # Friendly city presets (lat, lon)
 CITY_PRESETS = {
     "— choose a place —": (None, None),
-    "New York City, USA": (40.7128, -74.0060),
-    "Los Angeles, USA": (34.0522, -118.2437),
-    "London, UK": (51.5074, -0.1278),
-    "Tokyo, Japan": (35.6762, 139.6503),
-    "Sydney, Australia": (-33.8688, 151.2093),
-    "Rio de Janeiro, Brazil": (-22.9068, -43.1729),
+    "Kaohsiung City, Taiwan": (22.6273, 120.3014),
+    "Mulhouse, France": (47.7508, 7.3359),
+    "Mexicali, Mexico": (32.6245, -115.4523),
+    "Québec City, Canada": (46.8139, -71.2080),
+    "Bangkok, Thailand": (13.7563, 100.5018),
 }
 
-# Approximate ring densities (people/km²) for presets — educational, not census-accurate.
+# Approximate ring densities (people/km²) for educational use.
+# Severe = inner blast zone, Moderate = suburban radius, Light = outer affected ring
 CITY_RING_DENSITY = {
-    "New York City, USA":      {"severe": 10000, "moderate": 4000, "light": 1500},
-    "Los Angeles, USA":        {"severe":  6000, "moderate": 2500, "light": 1000},
-    "London, UK":              {"severe":  7000, "moderate": 3000, "light": 1200},
-    "Tokyo, Japan":            {"severe":  8000, "moderate": 3500, "light": 1400},
-    "Sydney, Australia":       {"severe":  4000, "moderate": 1500, "light":  600},
-    "Rio de Janeiro, Brazil":  {"severe":  6500, "moderate": 2800, "light": 1100},
+    "Kaohsiung City, Taiwan": {"severe": 9000, "moderate": 4000, "light": 1500},
+    "Mulhouse, France":       {"severe": 4000, "moderate": 1500, "light": 600},
+    "Mexicali, Mexico":       {"severe": 5000, "moderate": 2000, "light": 800},
+    "Québec City, Canada":    {"severe": 4500, "moderate": 1800, "light": 700},
+    "Bangkok, Thailand":      {"severe": 12000, "moderate": 5000, "light": 2000},
 }
 
-# Fallback densities for arbitrary lat/lon (rural/suburban blend)
+# Fallback for non-preset coordinates (rural/suburban)
 DEFAULT_RING_DENSITY = {"severe": 1200, "moderate": 500, "light": 200}
 
 # ----------------------------
@@ -369,7 +368,7 @@ def estimate_burst_altitude_km(
 
     # Size correction: larger bodies penetrate deeper (down-shift altitude)
     if diameter_m is not None and diameter_m > 0:
-        altitude -= 6.0 * math.log10(max(diameter_m, 10.0) / 50.0)
+        altitude -= min(8.0, 6.0 * math.log10(max(diameter_m, 10.0) / 50.0))
 
     # ANGLE correction (educational): shallower entries break higher
     if angle_deg is not None:
@@ -385,12 +384,11 @@ def ground_energy_fraction(burst_altitude_km: float) -> float:
     """Approximate fraction of kinetic energy that couples to the ground (PAIR-inspired)."""
     if burst_altitude_km <= 0:
         return 1.0
-    # Hackathon-friendly smoothing: keep a gradual decay so high-altitude bursts still
-    # couple a tiny amount of energy instead of instantly dropping to zero at 25 km.
-    # Logistic curve mimics the PAIR trend without requiring the full atmospheric model.
-    scale_height = 4.0  # steeper value = faster drop-off with altitude
-    midpoint = 22.0  # around this altitude half the energy reaches the ground
-    fraction = 1.0 / (1.0 + math.exp((burst_altitude_km - midpoint) / scale_height))
+    # Steeper logistic: midpoint ~15 km, scale ~2.5 km
+    midpoint = 15.0
+    scale = 2.5
+    fraction = 1.0 / (1.0 + math.exp((burst_altitude_km - midpoint) / scale))
+    # Guard against underflow/overflow and clamp
     return float(max(0.0, min(1.0, fraction)))
 
 K1 = 1.3
@@ -412,17 +410,44 @@ def transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_
     D_t = K1 * rho_ratio * (diameter_m ** (1 - MU)) * (v ** MU) * (gravity ** (-GAMMA)) * angle_factor
     return float(max(D_t, 0.0))
 
-def final_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg, burst_altitude_km):
-    # If the body disrupts above ~1 km → no excavation crater (airburst)
-    if burst_altitude_km > 1.0:
+def final_crater_diameter_m(
+    diameter_m: float,
+    velocity_km_s: float,
+    density_kg_m3: float,
+    angle_deg: float,
+    burst_altitude_km: float,
+) -> float:
+    """
+    Compute a final crater diameter even if breakup occurs, by scaling with the
+    ground-coupled energy fraction. Educational, not mission-grade.
+
+    Rules of thumb:
+    - If <5% of the kinetic energy reaches the ground → true airburst → no crater.
+    - Otherwise, scale the transient crater by gf^(1/3) (crater size ~ E^(~1/3) scaling)
+      and then apply a simple transient->final factor.
+    """
+    # Fraction of the entry kinetic energy that reaches the ground
+    gf = ground_energy_fraction(burst_altitude_km)  # 0..1
+
+    # True airburst: almost nothing reaches the ground
+    if gf < AIRBURST_THRESHOLD:
         return 0.0
 
-    # Otherwise it reaches the ground; compute transient crater and the final size
+    # Compute a no-fragmentation transient crater
     D_t = transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg)
     if D_t <= 0:
         return 0.0
-    # A simple transient→final factor for simple craters
-    return float(max(1.25 * D_t, 0.0))
+
+    # Reduce crater size by the fraction of energy that survives to the ground.
+    # Crater diameter scales roughly with E^(1/3) in the gravity regime.
+    D_t_eff = D_t * (gf ** (1.0 / 3.0))
+
+    # If extremely small after scaling, treat as no excavated crater
+    if D_t_eff < 50.0:  # meters; guard against tiny/ambiguous bowls
+        return 0.0
+
+    # Simple transient->final conversion
+    return 1.25 * D_t_eff
 
 # very small lookup: overpressure psi -> scaled distance Z (m/kg^(1/3))
 # Values are approximate, education-friendly (Glasstone/Dolan-like).
@@ -590,18 +615,36 @@ def haversine_offset(lat, lon, d_km, bearing_deg):
     return math.degrees(lat2), (math.degrees(lon2) + 540) % 360 - 180
 
 
-def apply_deflection(lat, lon, delta_v_mm_s: float, lead_days: float, inbound_bearing_deg: float = 0.0):
+def apply_deflection(lat, lon, delta_v_mm_s, lead_years, inbound_bearing_deg=0.0):
     """
-    Toy model: along-track shift s ≈ Δv * t (projected), then map to km and shift opposite inbound bearing.
+    Educational deflection model with simple 'phase amplification':
+    - A small Δv applied early shifts the encounter phase each orbit.
+    - We approximate this leverage with a constant amplification factor (~3),
+      representing how along-track timing errors accumulate by encounter time.
+    - Lead time is in years.
+    - If the amplified along-track displacement exceeds ~1 Earth radius, treat as a miss.
+
+    Returns:
+        (new_lat, new_lon, shift_km) if it still impacts,
+        or (None, None, miss_distance_km) if it misses Earth.
     """
-    # Convert mm/s to m/s
-    dv = delta_v_mm_s / 1000.0
-    t = lead_days * 86400.0
-    s_m = dv * t
-    s_km = s_m / 1000.0
-    # shift perpendicular-ish to showcase effect; here use opposite bearing to move impact point
-    new_lat, new_lon = haversine_offset(lat, lon, s_km, (inbound_bearing_deg + 180) % 360)
-    return new_lat, new_lon, s_km
+    dv = delta_v_mm_s / 1000.0          # mm/s -> m/s
+    t = lead_years * 365.25 * 86400.0   # years -> s
+
+    AMPLIFICATION = 3.0                 # tunable 2–5 for classroom intuition
+    along_m = dv * t * AMPLIFICATION    # amplified along-track displacement (m)
+    along_km = along_m / 1000.0
+
+    miss_threshold_km = EARTH_RADIUS_KM * 1.05  # ~1 Earth radius + small margin
+
+    if abs(along_km) >= miss_threshold_km:
+        # Miss: return None coords and the (signed) miss distance in km
+        return None, None, along_km
+
+    # Still hits: shift ground impact point for visualization (cap so it stays readable)
+    plotted_shift_km = max(0.0, min(abs(along_km), 5000.0))
+    new_lat, new_lon = haversine_offset(lat, lon, plotted_shift_km, (inbound_bearing_deg + 180) % 360)
+    return new_lat, new_lon, plotted_shift_km
 
 
 # ----------------------------
@@ -853,9 +896,12 @@ with exp_tab:
     E_j = kinetic_energy_joules(m, velocity)
     E_mt = tnt_megatons(E_j)
     breakup_alt_km = estimate_burst_altitude_km(velocity, strength_mpa, diameter_m, angle)
-    burst_alt_km = max(0.0, breakup_alt_km - 6.0)
+    burst_alt_km = max(0.0, breakup_alt_km)
     ground_fraction = ground_energy_fraction(burst_alt_km)
     crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
+    # If very little energy reaches the ground, force airburst in the UI
+    if ground_fraction < AIRBURST_THRESHOLD:
+        crater_m = 0.0
     crater_km = crater_m / 1000.0
     # The height term inside blast_overpressure_radius_km already accounts for attenuation.
     # Use actual ground-coupled energy; no artificial floor
@@ -959,6 +1005,19 @@ with exp_tab:
     # Map visualization with crater and blast damage zones
     st.markdown("### Impact Visualization Map")
 
+    # Map visualization with concentric circles
+    st.session_state["impact_scenario"] = {
+        "lat": lat, "lon": lon,
+        "diameter_m": diameter_m, "density": density, "velocity": velocity,
+        "angle": angle, "strength_mpa": strength_mpa,
+        "E_mt": E_mt, "E_ground_mt": E_ground_mt,
+        "burst_alt_km": burst_alt_km, "crater_km": crater_km,
+        "r_severe": r_severe, "r_mod": r_mod, "r_light": r_light, "Mw": Mw,
+        "exposure": exposure, "casualties": exposure.get("casualties", 0.0),
+        "ring_densities": current_ring_densities,  # NEW
+    }
+
+    st.markdown("### Map")
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
     def circle_layer(radius_km, color, name=""):
@@ -1086,70 +1145,160 @@ with exp_tab:
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
                 st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
 
-
 with defend_tab:
     st.subheader("Try a deflection strategy ✨")
+    st.write("See how a small push far in advance could change an asteroid’s impact point and effects on Earth.")
 
+    # --- Load stored parameters from Explore tab ---
+    if "impact_scenario" not in st.session_state:
+        st.warning("⚠️ Please first create an asteroid scenario in the **Explore** tab.")
+        st.stop()
+
+    scenario = st.session_state["impact_scenario"]
+
+    base_lat = scenario["lat"]
+    base_lon = scenario["lon"]
+    diameter_m = scenario["diameter_m"]
+    density = scenario["density"]
+    velocity = scenario["velocity"]
+    angle = scenario["angle"]
+    strength_mpa = scenario["strength_mpa"]
+    E_mt_base = scenario["E_mt"]
+    E_ground_mt_base = scenario["E_ground_mt"]
+    burst_alt_km_base = scenario["burst_alt_km"]
+    crater_km_base = scenario["crater_km"]
+    r12_base = scenario["r_severe"]
+    r4_base = scenario["r_mod"]
+    r1_base = scenario["r_light"]
+    Mw_base = scenario["Mw"]
+    casualties = scenario["casualties"]
+    ring_densities = scenario.get("ring_densities", DEFAULT_RING_DENSITY)
+
+    # --- Deflection controls ---
     c1, c2, c3 = st.columns(3)
     with c1:
-        delta_v_mm_s = st.slider(t("deflect.delta_v_label") or "Δv (mm/s)", 0.0, 5.0, 0.5, step=0.1, key="deflect_delta_v")
+        delta_v_mm_s = st.slider("Δv (mm/s)", 0.0, 50.0, 1.0, step=0.5)
     with c2:
-        lead_days = st.slider(t("deflect.lead_time_label") or "Lead time (days)", 0, 3650, 365, step=30, key="deflect_lead_days")
+        lead_years = st.slider("Lead time (years)", 0.0, 50.0, 5.0, step=0.5)
     with c3:
         inbound_bearing = st.slider(t("deflect.bearing_label") or "Inbound bearing (°)", 0, 359, 90, key="deflect_bearing")
 
-    # Baseline from Explore tab (share state)
-    base_lat, base_lon = lat, lon
-    new_lat, new_lon, shift_km = apply_deflection(base_lat, base_lon, delta_v_mm_s, lead_days, inbound_bearing)
+    # --- Compute new impact point ---
+    new_lat, new_lon, shift_km = apply_deflection(base_lat, base_lon, delta_v_mm_s, lead_years, inbound_bearing)
 
-    cols = st.columns(3)
-    cols[0].metric(t("metrics.shift_km", default="Shift on ground (km)"), f"{shift_km:.1f}")
-    cols[1].metric(t("metrics.old_impact", default="Old impact"), f"{base_lat:.3f}, {base_lon:.3f}")
-    cols[2].metric(t("metrics.new_impact", default="New impact"), f"{new_lat:.3f}, {new_lon:.3f}")
+    if new_lat is None:
+        st.success(f"✅ Deflection successful! The asteroid misses Earth by ~{abs(shift_km):,.0f} km at encounter.")
+        st.info("Try smaller Δv or shorter lead time to find the minimum nudge that still avoids impact.")
+        st.stop()
+    else:
+        st.warning(f"⚠️ Still on impact course. Ground shift ≈ {shift_km:.1f} km.")
 
-    view_state = pdk.ViewState(latitude=base_lat, longitude=base_lon, zoom=5, bearing=0, pitch=30)
+    # --- Recompute outcome at new site (same asteroid physics) ---
+    burst_alt_km = estimate_burst_altitude_km(velocity, strength_mpa, diameter_m, angle)
+    burst_alt_km = max(0.0, burst_alt_km)
+    ground_fraction = ground_energy_fraction(burst_alt_km)
+    
+    m = asteroid_mass_kg(diameter_m, density)
+    E_j = kinetic_energy_joules(m, velocity)
+    E_mt = tnt_megatons(E_j)
+    E_ground_mt = E_mt * ground_fraction
+    crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
+    if ground_fraction < AIRBURST_THRESHOLD:
+        crater_m = 0.0
+    crater_km = crater_m / 1000.0
 
-    path_df = pd.DataFrame({
-        "lat": [base_lat, new_lat],
-        "lon": [base_lon, new_lon],
+    r12 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 12.0)
+    r4 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 4.0)
+    r1 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 1.0)
+    Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
+
+    exposure = estimate_population_impacts(r12, r4, r1, ring_densities=ring_densities)
+    new_casualties = exposure.get("casualties", 0.0)
+    casualty_diff = new_casualties - casualties
+
+    # --- Comparison Table ---
+    comp = pd.DataFrame({
+        "Parameter": [
+            "Impact latitude", "Impact longitude",
+            "Breakup altitude (km)",
+            "Kinetic energy (Mt TNT)", "Ground-coupled energy (Mt TNT)",
+            "Crater diameter (km)",
+            "Severe radius (12 psi, km)", "Moderate radius (4 psi, km)", "Light radius (1 psi, km)",
+            "Seismic magnitude (Mw)",
+            "Estimated casualties",
+        ],
+        "Before (original)": [
+            f"{base_lat:.3f}", f"{base_lon:.3f}",
+            f"{burst_alt_km_base:.1f}",
+            f"{E_mt_base:.2f}", f"{E_ground_mt_base:.2f}",
+            f"{crater_km_base:.2f}" if crater_km_base > 0 else "Airburst",
+            f"{r12_base:.2f}", f"{r4_base:.2f}", f"{r1_base:.2f}",
+            f"{Mw_base:.1f}" if Mw_base else "n/a",
+            f"{casualties:.1f}" if casualties else "n/a",
+        ],
+        "After (deflected)": [
+            f"{new_lat:.3f}", f"{new_lon:.3f}",
+            f"{burst_alt_km:.1f}",
+            f"{E_mt:.2f}", f"{E_ground_mt:.2f}",
+            f"{crater_km:.2f}" if crater_km > 0 else "Airburst",
+            f"{r12:.2f}", f"{r4:.2f}", f"{r1:.2f}",
+            f"{Mw:.1f}" if Mw else "n/a",
+            f"{new_casualties:.1f}" if new_casualties else "n/a",
+        ]
     })
+    st.markdown("### 🌍 Before vs After Deflection")
+    st.dataframe(comp, use_container_width=True)
 
-    overlays = [
+    # --- Map visualization (original + deflected impact) ---
+    view_state = pdk.ViewState(latitude=base_lat, longitude=base_lon, zoom=5, pitch=30)
+
+    def circle_layer(lat, lon, radius_km, color, name):
+        return pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            get_position="[lon, lat]",
+            get_radius=radius_km * 1000,
+            get_fill_color=color,
+            stroked=False,
+            pickable=False,
+            filled=True,
+            opacity=0.25,
+            id=name,
+        )
+
+    layers = [
+        # Original (red)
+        circle_layer(base_lat, base_lon, r1_base, [255, 165, 0, 80], "light_before"),
+        circle_layer(base_lat, base_lon, r4_base, [255, 0, 0, 100], "mod_before"),
+        circle_layer(base_lat, base_lon, r12_base, [139, 0, 0, 150], "sev_before"),
+        # Deflected (green)
+        circle_layer(new_lat, new_lon, r1, [0, 255, 0, 60], "light_after"),
+        circle_layer(new_lat, new_lon, r4, [0, 200, 100, 80], "mod_after"),
+        circle_layer(new_lat, new_lon, r12, [0, 100, 0, 120], "sev_after"),
+        # Line connecting them
         pdk.Layer(
             "LineLayer",
-            data=pd.DataFrame({"source_lon": [base_lon], "source_lat": [base_lat], "target_lon": [new_lon], "target_lat": [new_lat]}),
+            data=pd.DataFrame({"source_lon": [base_lon], "source_lat": [base_lat],
+                               "target_lon": [new_lon], "target_lat": [new_lat]}),
             get_source_position="[source_lon, source_lat]",
             get_target_position="[target_lon, target_lat]",
             get_width=3,
             get_color=[0, 200, 255, 200],
         ),
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [base_lat], "lon": [base_lon]}),
-            get_position="[lon, lat]",
-            get_radius=7000,
-            get_fill_color=[255, 0, 0, 200],
-        ),
-        pdk.Layer(
-            "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [new_lat], "lon": [new_lon]}),
-            get_position="[lon, lat]",
-            get_radius=7000,
-            get_fill_color=[0, 255, 0, 200],
-        ),
     ]
 
     if MAPBOX_TOKEN:
-        deck = pdk.Deck(map_style="mapbox://styles/mapbox/dark-v11", initial_view_state=view_state, layers=overlays)
+        deck = pdk.Deck(map_style="mapbox://styles/mapbox/dark-v11", initial_view_state=view_state, layers=layers)
     else:
         basemap = pdk.Layer(
             "TileLayer",
             data="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
             min_zoom=0, max_zoom=19, tile_size=256,
         )
-        deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *overlays], map_style=None)
+        deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *layers])
 
     st.pydeck_chart(deck)
+    st.caption("Red = original impact | Green = deflected impact. Adjust Δv and lead time to see how even small pushes can change where — and how severely — an asteroid hits Earth.")
 
 with learn_tab:
     import streamlit as st
@@ -1446,11 +1595,21 @@ with learn_tab:
                     st.markdown(f"- `{var}`: {desc}")
 
 
-    st.markdown("### Where to extend (hackathon tasks)")
-    st.markdown("- **USGS overlays:** add coastal elevation/tsunami hazard layers via tiled map sources.")
-    st.markdown("- **Population exposure:** add a layer with night lights or population to illustrate risk.")
-    st.markdown("- **Better crater/blast models:** swap in published scaling relations and atmosphere effects.")
-    st.markdown("- **Orbit view:** a 3D Three.js canvas for the Sun–Earth–asteroid geometry (or use Plotly 3D).")
+    st.divider()
+
+    st.markdown(
+        """
+        ### 🛠️ Future Classroom Add-Ons (Hackathon Ideas)
+        - 🗺️ **USGS / NASA layers:** overlay coastlines, fault zones, or elevation for tsunami risk.
+        - 👥 **Population exposure:** visualize how many people live near the impact area.
+        - 🌡️ **Atmospheric effects:** add fireball brightness or shock-wave timing.
+        - ☀️ **3D orbit view:** show the asteroid’s path around the Sun using Plotly 3D or Three.js.
+        - 🎮 **Game mode:** give students missions — *“Save Earth with ≤ 1 mm/s Δv!”*
+        """
+    )
+
+    st.caption("Educational mode: simplified for learning. Data and models inspired by NASA, ESA, and academic impact simulations.")
+
 
 
 st.sidebar.title(t("sidebar.about_title") or "About this MVP")
