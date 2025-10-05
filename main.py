@@ -1694,14 +1694,8 @@ with learn_tab:
     st.divider()
 
     st.markdown(
-        """
-        ### 🛠️ Future Classroom Add-Ons (Hackathon Ideas)
-        - 🗺️ **USGS / NASA layers:** overlay coastlines, fault zones, or elevation for tsunami risk.
-        - 👥 **Population exposure:** visualize how many people live near the impact area.
-        - 🌡️ **Atmospheric effects:** add fireball brightness or shock-wave timing.
-        - ☀️ **3D orbit view:** show the asteroid’s path around the Sun using Plotly 3D or Three.js.
-        - 🎮 **Game mode:** give students missions — *“Save Earth with ≤ 1 mm/s Δv!”*
-        """
+        "**Reference:** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). "
+        "Earth Impact Effects Program: A tool for calculating the regional environmental consequences "
+        "of a meteoroid impact on Earth. *Icarus*. "
+        "[https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
     )
-
-    st.caption("Educational mode: simplified for learning. Data and models inspired by NASA, ESA, and academic impact simulations.")
