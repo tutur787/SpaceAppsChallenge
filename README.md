@@ -15,7 +15,7 @@ formation**, **blast effects**, and **seismic impact**. - Compare
 strategies**. - Learn about the **science of impacts** through simple
 explanations and key equations.
 
-The focus is on **education, clarity, and safety**:\
+The focus is on **education, clarity, and safety**:
 - Sensitive outputs (like human impacts) are hidden by default, but can
 be toggled for advanced discussion.\
 - Confidence badges show which outputs are **high confidence
