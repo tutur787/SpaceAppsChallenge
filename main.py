@@ -1622,5 +1622,5 @@ if defaults_meta:
         + "<br>" + t("sidebar.spectral", tax=taxonomy or "n/a")
         + "<br>" + t("sidebar.density", dens=density_val or 0.0),
         unsafe_allow_html=True,
-    )
+    ) 
 st.sidebar.info(t("sidebar.disclaimer") or "This is an educational demo. Numbers are approximate. For real decisions, consult official models and data.")
