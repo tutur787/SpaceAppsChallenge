@@ -117,7 +117,7 @@ for **classroom discussions** at all levels.
 
 -   **Challenge:** Planetary Defense & Asteroid Impacts
 -   **Event:** NASA Space Apps Challenge
--   **Team Name:** `<Your Team Name>`
+-   **Team Name:** MS in MADNESS
 -   **Year:** 2025
 
 We wanted to make asteroid science accessible and engaging for
