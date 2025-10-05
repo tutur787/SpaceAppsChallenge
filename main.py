@@ -64,6 +64,10 @@ SYNTHETIC_POP_DENSITY = {
     "light": 800,
 }
 
+# NOTE: These casualty rates are NOT from the PAIR white paper.
+# Mathias et al. (2017) uses "affected population" (everyone within 4-psi damage radius)
+# without modeling specific casualty rates. These rates are kept for legacy/educational purposes
+# but should NOT be used in PAIR-compliant calculations.
 SYNTHETIC_CASUALTY_RATE = {
     "severe": 0.35,
     "moderate": 0.1,
@@ -649,37 +653,7 @@ if "lang" not in st.session_state:
         set_lang("en")
         st.session_state["lang"] = "en"
 
-with st.sidebar:
-    try:
-        langs = AVAILABLE_LANGS or ["en"]
-    except Exception:
-        langs = ["en"]
-    # display local (native) names for languages while storing language codes internally
-    # mapping: display name -> code
-    lang_display_map = {
-        "English": "en",
-        "繁體中文": "zh-Hant",
-        "Español": "es",
-        "Français": "fr",
-    }
-    # build selectbox options based on available langs, showing native names only
-    display_options = [k for k, v in lang_display_map.items() if v in langs]
-    # compute current selection display label
-    current_display = next((k for k, v in lang_display_map.items() if v == st.session_state["lang"]), "English")
-    chosen_display = st.selectbox(t("sidebar.language_label"), display_options, index=display_options.index(current_display) if current_display in display_options else 0)
-    chosen = lang_display_map.get(chosen_display, "en")
-    if chosen != st.session_state["lang"]:
-        set_lang(chosen)
-        st.session_state["lang"] = chosen
-        # reflect in URL so links share language
-        st.experimental_set_query_params(lang=chosen)
-
-st.title(t("app.title"))
-st.caption(t("app.caption"))
-
-ensure_session_defaults()
-defaults_meta = st.session_state.get("defaults_metadata", {})
-
+st.title("🛰️ Impactor-2025: Learn & Simulate")
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -772,37 +746,34 @@ with exp_tab:
     primary_cols = st.columns(4)
     with primary_cols[0]:
         diameter_default = int(st.session_state.get("diameter_m", 150))
-        diameter_kwargs = {
-            "min_value": 10,
-            "max_value": 2000,
-            "step": 10,
-            "key": "diameter_m",
-        }
-        if "diameter_m" not in st.session_state:
-            diameter_kwargs["value"] = diameter_default
-        diameter_m = st.slider(t("labels.diameter"), **diameter_kwargs)
+        diameter_m = st.slider(
+            "Asteroid diameter (m)",
+            min_value=10,
+            max_value=2000,
+            value=diameter_default,
+            step=10,
+            key="diameter_m",
+        )
     with primary_cols[1]:
         velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
-        velocity_kwargs = {
-            "min_value": 5.0,
-            "max_value": 70.0,
-            "step": 0.5,
-            "key": "velocity_km_s",
-        }
-        if "velocity_km_s" not in st.session_state:
-            velocity_kwargs["value"] = velocity_default
-        velocity = st.slider(t("labels.velocity"), **velocity_kwargs)
+        velocity = st.slider(
+            "Velocity at impact (km/s)",
+            min_value=5.0,
+            max_value=70.0,
+            value=velocity_default,
+            step=0.5,
+            key="velocity_km_s",
+        )
     with primary_cols[2]:
         angle_default = int(st.session_state.get("angle_deg", 45))
-        angle_kwargs = {
-            "min_value": 10,
-            "max_value": 90,
-            "step": 1,
-            "key": "angle_deg",
-        }
-        if "angle_deg" not in st.session_state:
-            angle_kwargs["value"] = angle_default
-        angle = st.slider(t("labels.angle"), **angle_kwargs)
+        angle = st.slider(
+            "Impact angle (°)",
+            min_value=10,
+            max_value=90,
+            value=angle_default,
+            step=1,
+            key="angle_deg",
+        )
     with primary_cols[3]:
         material_options = list(MATERIAL_PRESETS.keys())
         default_material = st.session_state.get("material_preset", defaults_meta.get("material", material_options[1]))
@@ -822,33 +793,23 @@ with exp_tab:
 
     secondary_cols = st.columns(2)
     with secondary_cols[0]:
-        density_default = float(st.session_state.get("bulk_density", preset_density))
-        density_kwargs = {
-            "min_value": 300,
-            "max_value": 9000,
-            "step": 50,
-            "key": "bulk_density",
-        }
-        if "bulk_density" not in st.session_state:
-            density_kwargs["value"] = int(round(density_default))
-        density = st.slider(t("labels.density"), **density_kwargs)
-        provenance = defaults_meta.get("provenance")
-        if provenance:
-            st.caption(t("app.default_from_provenance", prov=provenance, dens=f"{density_default:,.0f}"))
-        else:
-            st.caption(t("app.preset_density_for", material=material, dens=f"{preset_density}"))
+        density_fallback = max(
+            float(preset_density),
+            float(get_slider_spec("bulk_density").min_value),
+        )
+        density_spec, density_kwargs = prepare_slider_args(
+            "bulk_density",
+            key_override=f"density_{material}",
+            fallback_value=density_fallback,
+            fallback_label="material_preset",
+        )
     with secondary_cols[1]:
-        strength_default = float(st.session_state.get("bulk_strength", preset_strength))
-        strength_kwargs = {
-            "min_value": 0.1,
-            "max_value": 300.0,
-            "step": 0.1,
-            "key": "bulk_strength",
-        }
-        if "bulk_strength" not in st.session_state:
-            strength_kwargs["value"] = float(strength_default)
-        strength_mpa = st.slider(t("labels.strength"), **strength_kwargs)
-    st.caption(t("app.adjust_strength_caption"))
+        strength_spec, strength_kwargs = prepare_slider_args(
+            "strength_mpa",
+            key_override=f"strength_{material}",
+            fallback_value=float(preset_strength),
+            fallback_label="material_preset",
+        )
 
     st.markdown("**" + t("app.where_hit") + "**")
     c1, c2, c3 = st.columns([2,1,1])
@@ -913,34 +874,51 @@ with exp_tab:
     cols2[3].metric(t("metrics.light_radius"), f"{r_light:.2f} km")
 
     cols3 = st.columns(3)
-    cols3[0].metric(t("metrics.population_exposed"), f"{exposure.get('total', 0.0):,.0f}")
-    cols3[1].metric(t("metrics.estimated_casualties"), f"{exposure.get('casualties', 0.0):,.0f}")
-    cols3[2].metric(t("metrics.seismic_mw"), f"{Mw:.1f}" if Mw is not None else t("app.na"))
+    # PAIR uses 4-psi damage radius as the primary metric (white paper Section 2.3, line 236)
+    # 4-psi is a full circle, not a ring, so we need to calculate the total area within r_mod
+    pair_damage_area_km2 = math.pi * max(r_mod, 0.0) ** 2
+    # Use the city/fallback density for the 4-psi region
+    if preset in CITY_RING_DENSITY:
+        pair_density = CITY_RING_DENSITY[preset].get("moderate", DEFAULT_RING_DENSITY["moderate"])
+    else:
+        pair_density = DEFAULT_RING_DENSITY["moderate"]
+    pair_affected_population_4psi = pair_damage_area_km2 * pair_density
 
-    st.caption(t("app.population_estimates_note"))
+    cols3[0].metric("Population in 4-psi zone", f"{pair_affected_population_4psi:,.0f}")
+    cols3[1].metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
+    cols3[2].metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
 
-    with st.expander(t("expanders.synthetic_exposure")):
+    with st.expander("Damage assessment details"):
+        # PAIR uses 4-psi as the primary damage threshold (full circle, not a ring)
+        pair_damage_radius_km = r_mod  # 4-psi radius
+        pair_damage_area_km2 = math.pi * max(pair_damage_radius_km, 0.0) ** 2
+        # Population = full area within 4-psi × density
+        pair_affected_pop = pair_damage_area_km2 * pair_density
+
+        st.metric("Damage radius (4-psi)", f"{pair_damage_radius_km:.2f} km")
+        st.metric("Damage area (full circle)", f"{pair_damage_area_km2:,.1f} km²")
+        st.metric("Population", f"{pair_affected_pop:,.0f} people")
+
+        # Show all three rings for reference/visualization
+        st.markdown("**Blast overpressure rings:**")
         exposure_rows = []
-        for ring, radius in [("severe", r_severe), ("moderate", r_mod), ("light", r_light)]:
+        for ring, radius, psi in [("severe", r_severe, 12), ("moderate", r_mod, 4), ("light", r_light, 1)]:
             area = math.pi * max(radius, 0.0) ** 2
             pop = exposure.get(ring, 0.0)
-            rate = SYNTHETIC_CASUALTY_RATE.get(ring, 0.0)
             exposure_rows.append(
                 {
                     "ring": ring,
+                    "overpressure_psi": psi,
                     "radius_km": radius,
                     "area_km2": area,
                     "population": pop,
-                    "casualty_rate": rate,
-                    "expected_casualties": pop * rate,
                 }
             )
         st.dataframe(pd.DataFrame(exposure_rows))
 
-    with st.expander(t("expanders.pair_scenarios")):
-        st.write(t("app.pair_sample_explain"))
-        samples = st.slider(t("app.samples_label"), 100, 1000, 300, step=50, key="monte_carlo_samples")
-        if st.button(t("app.run_sim_button"), key="run_pair_button"):
+    with st.expander("Probabilistic scenarios"):
+        samples = st.slider("Number of Monte Carlo samples", 100, 1000, 300, step=50)
+        if st.button("Run simulation", key="run_pair_button"):
             sim_df = run_pair_simulation(samples, diameter_m, density, velocity, angle, strength_mpa)
             if sim_df.empty:
                 st.warning(t("app.simulation_no_scenarios"))
@@ -961,38 +939,51 @@ with exp_tab:
                 crater_probability = float((sim_df["crater_km"] > 0).mean())
                 st.metric(t("metrics.probability_crater"), f"{crater_probability*100:.1f}%")
 
-                st.caption(t("app.pair_note"))
+    # Map visualization with crater and blast damage zones
+    st.markdown("### Impact Visualization Map")
 
-    # Map visualization with concentric circles
-    st.markdown("### " + t("app.map"))
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
-    def circle_layer(radius_km, color, opacity=100):
+    def circle_layer(radius_km, color, name=""):
         return pdk.Layer(
             "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [name]}),
             get_position="[lon, lat]",
             get_radius=radius_km * 1000,
             radius_min_pixels=1,
             radius_max_pixels=10000,
             get_fill_color=color,
-            pickable=False,
+            pickable=True,
             stroked=False,
             filled=True,
         )
 
     rings = [
-        circle_layer(r_light, [255, 165, 0, 60]),
-        circle_layer(r_mod, [255, 0, 0, 80]),
-        circle_layer(r_severe, [139, 0, 0, 120]),
+        # Blast damage zones (from outer to inner)
+        circle_layer(r_light, [255, 165, 0, 60], f"1-psi zone: {r_light:.1f} km"),
+        circle_layer(r_mod, [255, 0, 0, 80], f"4-psi zone (PAIR): {r_mod:.1f} km"),
+        circle_layer(r_severe, [139, 0, 0, 120], f"12-psi zone: {r_severe:.1f} km"),
+        # Crater
         pdk.Layer(
             "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [f"Crater: {crater_km:.2f} km diameter"]}),
             get_position="[lon, lat]",
-            get_radius=5000,
-            get_fill_color=[0, 0, 0, 180],
-            get_line_color=[255, 255, 255, 220],
-            line_width_min_pixels=1,
+            get_radius=crater_km * 500,  # crater radius in meters
+            get_fill_color=[50, 50, 50, 220],
+            get_line_color=[255, 255, 255, 255],
+            line_width_min_pixels=2,
+            pickable=True,
+        ),
+        # Impact point marker
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": ["Impact Point"]}),
+            get_position="[lon, lat]",
+            get_radius=1000,
+            get_fill_color=[255, 255, 0, 255],
+            get_line_color=[255, 0, 0, 255],
+            line_width_min_pixels=2,
+            pickable=True,
         ),
     ]
 
@@ -1009,9 +1000,19 @@ with exp_tab:
 
     st.pydeck_chart(deck)
 
+    # Map legend
+    st.markdown("""
+    **Map Legend:**
+    - 🟡 **Yellow dot**: Impact point
+    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
+    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
+    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
+    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
+    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
+
     # --- PATCH 2: make NEOs usable + educational summaries ---
-    with st.expander(t("expanders.use_today_neos")):
-        df = fetch_today_neos()
+    with st.expander("Use today's NASA NEOs as inputs"):
+        df = neo_df.copy()
         if df.empty:
             st.info(t("app.neo_fetch_unavailable") or "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.")
         else:
@@ -1030,98 +1031,48 @@ with exp_tab:
             }))
 
             # Pick one and push into the simulator
+            neo_options = ["— use custom values —"] + df["name"].tolist()
             choice = st.selectbox(
-                t("app.neo_pick_prompt"),
-                options=df["name"].tolist(),
-                key="neo_pick",
+                "Pick an asteroid to simulate (what-if it hit):",
+                options=neo_options,
+                key="neo_choice"
             )
             row = df.loc[df["name"] == choice].iloc[0]
 
-            st.caption(
-                t(
-                    "app.neo_selected_caption",
-                    name=row.get("name"),
-                    diameter=f"{row['diameter_avg_m']:.1f}",
-                    speed=f"{row['velocity_km_s']:.2f}",
-                    miss_km=f"{row['miss_distance_km']:.0f}",
-                    moonx=f"{row['miss_distance_moon_x']:.1f}",
-                )
-            )
+            if choice != "— use custom values —":
+                row = df.loc[df["name"] == choice].iloc[0]
 
-            colA, colB = st.columns(2)
-            with colA:
-                if st.button(t("app.use_neo_button") or "Use this NEO in the simulator"):
-                    diameter_value = row["diameter_avg_m"]
-                    if diameter_value is None or pd.isna(diameter_value):
-                        diameter_value = st.session_state["diameter_m"]
-                    diameter_value = int(np.clip(diameter_value, 10, 2000))
 
-                    velocity_value = row["velocity_km_s"]
-                    if velocity_value is None or pd.isna(velocity_value):
-                        velocity_value = st.session_state["velocity_km_s"]
-                    velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
+                # Automatically update sliders when selection changes
+                diameter_value = row["diameter_avg_m"]
+                if diameter_value is None or pd.isna(diameter_value):
+                    diameter_value = st.session_state.get("diameter_m", 150)
+                diameter_value = int(np.clip(diameter_value, 10, 2000))
 
-                    sbdb_density = None
-                    sbdb_strength = None
-                    sbdb_material = st.session_state.get("material_preset", "Stony (ordinary chondrite)")
-                    sbdb_provenance = None
-                    sbdb_taxonomy = None
-                    sbdb_fullname = None
-                    designation = row.get("designation") or row.get("name")
-                    if designation:
-                        try:
-                            sbdb_payload = cached_sbdb_payload(designation)
-                            phys = extract_sbdb_phys(sbdb_payload)
-                            sbdb_taxonomy = phys.get("spectral_class")
-                            sbdb_material = material_from_taxonomy(sbdb_taxonomy)
-                            sbdb_density, sbdb_strength, sbdb_provenance = resolve_density_strength(
-                                phys.get("density_kg_m3"),
-                                sbdb_taxonomy,
-                            )
-                            sbdb_fullname = (
-                                sbdb_payload.get("object", {}).get("fullname")
-                                or designation
-                            )
-                        except SBDBError as exc:
-                            st.warning(t("app.sbdb_lookup_failed", err=str(exc)))
+                velocity_value = row["velocity_km_s"]
+                if velocity_value is None or pd.isna(velocity_value):
+                    velocity_value = st.session_state.get("velocity_km_s", 18.0)
+                velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
 
-                    if sbdb_density is None:
-                        sbdb_density = st.session_state.get("bulk_density")
-                    if sbdb_strength is None:
-                        sbdb_strength = st.session_state.get("bulk_strength")
-
+                # Check if values need updating
+                if (st.session_state.get("diameter_m") != diameter_value or
+                    st.session_state.get("velocity_km_s") != velocity_value):
                     override_values = {
                         "diameter_m": diameter_value,
                         "velocity_km_s": velocity_value,
-                        # Reset to a representative entry angle for clarity when swapping asteroids
                         "angle_deg": 45,
-                        "bulk_density": float(sbdb_density) if sbdb_density is not None else st.session_state.get("bulk_density", float(MATERIAL_PRESETS[sbdb_material]["density"])),
-                        "bulk_strength": float(sbdb_strength) if sbdb_strength is not None else st.session_state.get("bulk_strength", float(MATERIAL_PRESETS[sbdb_material]["strength_mpa"])),
-                        "material_preset": sbdb_material,
                     }
                     st.session_state["widget_overrides"] = override_values
-                    st.session_state["defaults_metadata"] = {
-                        "neo_name": row.get("name"),
-                        "neo_designation": row.get("designation"),
-                        "sbdb_fullname": sbdb_fullname or row.get("name"),
-                        "material": sbdb_material,
-                        "density": override_values["bulk_density"],
-                        "strength_mpa": override_values["bulk_strength"],
-                        "provenance": sbdb_provenance or "SBDB/NeoWs selection",
-                        "taxonomy": sbdb_taxonomy,
-                    }
                     st.rerun()
-            with colB:
-                # A quick educational “scale” card
+
+                # Preview metric
                 mass = asteroid_mass_kg(row["diameter_avg_m"], density)
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
-                st.metric(t("metrics.whatif_preview") or "What-if energy (preview)", f"{E_mt_preview:,.2f} Mt TNT")
-                st.caption(t("app.preview_caption") or "Preview assumes current density/material selection.")
+                st.metric("Impact energy", f"{E_mt_preview:,.2f} Mt TNT")
 
 
 with defend_tab:
-    st.subheader(t("app.deflection_title") or "Try a deflection strategy ✨")
-    st.write(t("learn.learn_text") or "Toy model: apply a small velocity change (Δv) some days before arrival and see how the nominal impact point shifts.")
+    st.subheader("Try a deflection strategy ✨")
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -1183,8 +1134,6 @@ with defend_tab:
         deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *overlays], map_style=None)
 
     st.pydeck_chart(deck)
-
-    st.caption(t("app.deflect_caption") or "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point.")
 
 with learn_tab:
     st.subheader(t("learn.glossary_title") or "Glossary & Teaching Aids")

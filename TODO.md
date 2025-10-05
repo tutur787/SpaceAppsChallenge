@@ -1,5 +1,17 @@
 # TODO
 
+- [x] Align damage/population model with PAIR methodology (Mathias et al. 2017) - COMPLETED
+    1. ✅ Renamed expander from "Synthetic exposure breakdown" to "PAIR damage assessment (Mathias et al. 2017)" (`main.py:549`).
+    2. ✅ Updated expander to highlight 4-psi blast overpressure as primary damage threshold (white paper Section 2.3, line 236).
+    3. ✅ Replaced hardcoded casualty estimates with PAIR "affected population" metric (everyone within 4-psi circle).
+    4. ✅ Main metrics now show: "PAIR affected population (≤4-psi)" instead of "Estimated casualties" (`main.py:539`).
+    5. ✅ Added documentation that `SYNTHETIC_CASUALTY_RATE` is NOT from PAIR; kept for legacy purposes only (`main.py:58-66`).
+    6. ✅ Fixed calculation: 4-psi is a full circle (area = π × r²), not a ring (annulus) (`main.py:531, 559`).
+    7. ✅ Added UI warning: "Affected ≠ casualties; depends on building codes, warning time, shelter availability."
+    8. ✅ Kept three blast rings (12/4/1 psi) for visualization but emphasized 4-psi as PAIR standard.
+    9. 🔲 (Future) Implement Collins et al. (2005) thermal radiation damage radius (white paper Eq. 6, Section 2.4).
+    10. 🔲 (Future) Replace synthetic population densities with SEDAC gridded census data (2.5-arc-minute resolution, white paper Section 2.5).
+
 - [ ] Replace synthetic asteroid material presets with SBDB-derived defaults.
     1. Update the NeoWs ingestion (`main.py::fetch_today_neos` or a new `src/api` helper) to join each object with `https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=<designation>&phys-par=1&full-prec=1` so the live payload contains `phys_par.spec`, `phys_par.albedo`, `phys_par.density`, and `phys_par.rot_per`.
     2. Drop those fields into a cache (e.g., `st.session_state['sbdb_cache']`) keyed by designation so Streamlit widgets can pre-populate without a second network call.
