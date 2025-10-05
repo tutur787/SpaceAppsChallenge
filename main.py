@@ -1,4 +1,4 @@
-# app.py
+# main.py
 # Streamlit MVP for an educational asteroid-impact dashboard
 # ----------------------------------------------------------- 
 # Features
@@ -16,15 +16,12 @@
 import math
 import os
 from datetime import date
-from typing import Any, Dict, Optional, Tuple
-
+from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
-
 from src.i18n import t, set_lang, get_lang, get_language_label, AVAILABLE_LANGS
-
 from src.api.nasa_neo import NeoWsClient, NeoWsError
 from src.data.defaults import (
     DEFAULT_NEO_ID,
