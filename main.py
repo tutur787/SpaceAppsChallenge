@@ -40,6 +40,9 @@ SEA_LEVEL_DENSITY = 1.225  # kg/m^3
 SCALE_HEIGHT_KM = 7.16  # exponential atmosphere scale height
 DEFAULT_SEISMIC_COUPLING = 3e-4  # fraction of kinetic energy converted to seismic energy
 
+# Airburst decision: if less than this fraction of KE reaches the ground, treat as no crater
+AIRBURST_THRESHOLD = 0.05
+
 MATERIAL_PRESETS = {
     "Carbonaceous chondrite": {"density": 1500, "strength_mpa": 1.0},
     "Stony (ordinary chondrite)": {"density": 3000, "strength_mpa": 10.0},
@@ -64,25 +67,24 @@ SYNTHETIC_CASUALTY_RATE = {
 # Friendly city presets (lat, lon)
 CITY_PRESETS = {
     "— choose a place —": (None, None),
-    "New York City, USA": (40.7128, -74.0060),
-    "Los Angeles, USA": (34.0522, -118.2437),
-    "London, UK": (51.5074, -0.1278),
-    "Tokyo, Japan": (35.6762, 139.6503),
-    "Sydney, Australia": (-33.8688, 151.2093),
-    "Rio de Janeiro, Brazil": (-22.9068, -43.1729),
+    "Kaohsiung City, Taiwan": (22.6273, 120.3014),
+    "Mulhouse, France": (47.7508, 7.3359),
+    "Mexicali, Mexico": (32.6245, -115.4523),
+    "Québec City, Canada": (46.8139, -71.2080),
+    "Bangkok, Thailand": (13.7563, 100.5018),
 }
 
-# Approximate ring densities (people/km²) for presets — educational, not census-accurate.
+# Approximate ring densities (people/km²) for educational use.
+# Severe = inner blast zone, Moderate = suburban radius, Light = outer affected ring
 CITY_RING_DENSITY = {
-    "New York City, USA":      {"severe": 10000, "moderate": 4000, "light": 1500},
-    "Los Angeles, USA":        {"severe":  6000, "moderate": 2500, "light": 1000},
-    "London, UK":              {"severe":  7000, "moderate": 3000, "light": 1200},
-    "Tokyo, Japan":            {"severe":  8000, "moderate": 3500, "light": 1400},
-    "Sydney, Australia":       {"severe":  4000, "moderate": 1500, "light":  600},
-    "Rio de Janeiro, Brazil":  {"severe":  6500, "moderate": 2800, "light": 1100},
+    "Kaohsiung City, Taiwan": {"severe": 9000, "moderate": 4000, "light": 1500},
+    "Mulhouse, France":       {"severe": 4000, "moderate": 1500, "light": 600},
+    "Mexicali, Mexico":       {"severe": 5000, "moderate": 2000, "light": 800},
+    "Québec City, Canada":    {"severe": 4500, "moderate": 1800, "light": 700},
+    "Bangkok, Thailand":      {"severe": 12000, "moderate": 5000, "light": 2000},
 }
 
-# Fallback densities for arbitrary lat/lon (rural/suburban blend)
+# Fallback for non-preset coordinates (rural/suburban)
 DEFAULT_RING_DENSITY = {"severe": 1200, "moderate": 500, "light": 200}
 
 # ----------------------------
@@ -123,7 +125,7 @@ def estimate_burst_altitude_km(
 
     # Size correction: larger bodies penetrate deeper (down-shift altitude)
     if diameter_m is not None and diameter_m > 0:
-        altitude -= 6.0 * math.log10(max(diameter_m, 10.0) / 50.0)
+        altitude -= min(8.0, 6.0 * math.log10(max(diameter_m, 10.0) / 50.0))
 
     # ANGLE correction (educational): shallower entries break higher
     if angle_deg is not None:
@@ -139,12 +141,11 @@ def ground_energy_fraction(burst_altitude_km: float) -> float:
     """Approximate fraction of kinetic energy that couples to the ground (PAIR-inspired)."""
     if burst_altitude_km <= 0:
         return 1.0
-    # Hackathon-friendly smoothing: keep a gradual decay so high-altitude bursts still
-    # couple a tiny amount of energy instead of instantly dropping to zero at 25 km.
-    # Logistic curve mimics the PAIR trend without requiring the full atmospheric model.
-    scale_height = 4.0  # steeper value = faster drop-off with altitude
-    midpoint = 22.0  # around this altitude half the energy reaches the ground
-    fraction = 1.0 / (1.0 + math.exp((burst_altitude_km - midpoint) / scale_height))
+    # Steeper logistic: midpoint ~15 km, scale ~2.5 km
+    midpoint = 15.0
+    scale = 2.5
+    fraction = 1.0 / (1.0 + math.exp((burst_altitude_km - midpoint) / scale))
+    # Guard against underflow/overflow and clamp
     return float(max(0.0, min(1.0, fraction)))
 
 K1 = 1.3
@@ -166,17 +167,44 @@ def transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_
     D_t = K1 * rho_ratio * (diameter_m ** (1 - MU)) * (v ** MU) * (gravity ** (-GAMMA)) * angle_factor
     return float(max(D_t, 0.0))
 
-def final_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg, burst_altitude_km):
-    # If the body disrupts above ~1 km → no excavation crater (airburst)
-    if burst_altitude_km > 1.0:
+def final_crater_diameter_m(
+    diameter_m: float,
+    velocity_km_s: float,
+    density_kg_m3: float,
+    angle_deg: float,
+    burst_altitude_km: float,
+) -> float:
+    """
+    Compute a final crater diameter even if breakup occurs, by scaling with the
+    ground-coupled energy fraction. Educational, not mission-grade.
+
+    Rules of thumb:
+    - If <5% of the kinetic energy reaches the ground → true airburst → no crater.
+    - Otherwise, scale the transient crater by gf^(1/3) (crater size ~ E^(~1/3) scaling)
+      and then apply a simple transient->final factor.
+    """
+    # Fraction of the entry kinetic energy that reaches the ground
+    gf = ground_energy_fraction(burst_altitude_km)  # 0..1
+
+    # True airburst: almost nothing reaches the ground
+    if gf < AIRBURST_THRESHOLD:
         return 0.0
 
-    # Otherwise it reaches the ground; compute transient crater and the final size
+    # Compute a no-fragmentation transient crater
     D_t = transient_crater_diameter_m(diameter_m, velocity_km_s, density_kg_m3, angle_deg)
     if D_t <= 0:
         return 0.0
-    # A simple transient→final factor for simple craters
-    return float(max(1.25 * D_t, 0.0))
+
+    # Reduce crater size by the fraction of energy that survives to the ground.
+    # Crater diameter scales roughly with E^(1/3) in the gravity regime.
+    D_t_eff = D_t * (gf ** (1.0 / 3.0))
+
+    # If extremely small after scaling, treat as no excavated crater
+    if D_t_eff < 50.0:  # meters; guard against tiny/ambiguous bowls
+        return 0.0
+
+    # Simple transient->final conversion
+    return 1.25 * D_t_eff
 
 # very small lookup: overpressure psi -> scaled distance Z (m/kg^(1/3))
 # Values are approximate, education-friendly (Glasstone/Dolan-like).
@@ -344,18 +372,36 @@ def haversine_offset(lat, lon, d_km, bearing_deg):
     return math.degrees(lat2), (math.degrees(lon2) + 540) % 360 - 180
 
 
-def apply_deflection(lat, lon, delta_v_mm_s: float, lead_days: float, inbound_bearing_deg: float = 0.0):
+def apply_deflection(lat, lon, delta_v_mm_s, lead_years, inbound_bearing_deg=0.0):
     """
-    Toy model: along-track shift s ≈ Δv * t (projected), then map to km and shift opposite inbound bearing.
+    Educational deflection model with simple 'phase amplification':
+    - A small Δv applied early shifts the encounter phase each orbit.
+    - We approximate this leverage with a constant amplification factor (~3),
+      representing how along-track timing errors accumulate by encounter time.
+    - Lead time is in years.
+    - If the amplified along-track displacement exceeds ~1 Earth radius, treat as a miss.
+
+    Returns:
+        (new_lat, new_lon, shift_km) if it still impacts,
+        or (None, None, miss_distance_km) if it misses Earth.
     """
-    # Convert mm/s to m/s
-    dv = delta_v_mm_s / 1000.0
-    t = lead_days * 86400.0
-    s_m = dv * t
-    s_km = s_m / 1000.0
-    # shift perpendicular-ish to showcase effect; here use opposite bearing to move impact point
-    new_lat, new_lon = haversine_offset(lat, lon, s_km, (inbound_bearing_deg + 180) % 360)
-    return new_lat, new_lon, s_km
+    dv = delta_v_mm_s / 1000.0          # mm/s -> m/s
+    t = lead_years * 365.25 * 86400.0   # years -> s
+
+    AMPLIFICATION = 3.0                 # tunable 2–5 for classroom intuition
+    along_m = dv * t * AMPLIFICATION    # amplified along-track displacement (m)
+    along_km = along_m / 1000.0
+
+    miss_threshold_km = EARTH_RADIUS_KM * 1.05  # ~1 Earth radius + small margin
+
+    if abs(along_km) >= miss_threshold_km:
+        # Miss: return None coords and the (signed) miss distance in km
+        return None, None, along_km
+
+    # Still hits: shift ground impact point for visualization (cap so it stays readable)
+    plotted_shift_km = max(0.0, min(abs(along_km), 5000.0))
+    new_lat, new_lon = haversine_offset(lat, lon, plotted_shift_km, (inbound_bearing_deg + 180) % 360)
+    return new_lat, new_lon, plotted_shift_km
 
 
 # ----------------------------
@@ -390,7 +436,7 @@ def fetch_today_neos():
 # ----------------------------
 st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
 st.title("🛰️ Impactor-2025: Learn & Simulate")
-st.caption("An educational dashboard to explore asteroid impacts, built for a hackathon.")
+st.caption("An educational dashboard to explore asteroid impacts.")
 # If an interaction queued widget overrides (e.g., from the NASA NEO picker),
 # apply them before any widgets with those keys are instantiated.
 if "widget_overrides" in st.session_state:
@@ -488,9 +534,12 @@ with exp_tab:
     E_j = kinetic_energy_joules(m, velocity)
     E_mt = tnt_megatons(E_j)
     breakup_alt_km = estimate_burst_altitude_km(velocity, strength_mpa, diameter_m, angle)
-    burst_alt_km = max(0.0, breakup_alt_km - 6.0)
+    burst_alt_km = max(0.0, breakup_alt_km)
     ground_fraction = ground_energy_fraction(burst_alt_km)
     crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
+    # If very little energy reaches the ground, force airburst in the UI
+    if ground_fraction < AIRBURST_THRESHOLD:
+        crater_m = 0.0
     crater_km = crater_m / 1000.0
     # The height term inside blast_overpressure_radius_km already accounts for attenuation.
     # Use actual ground-coupled energy; no artificial floor
@@ -591,6 +640,7 @@ with exp_tab:
         "burst_alt_km": burst_alt_km, "crater_km": crater_km,
         "r_severe": r_severe, "r_mod": r_mod, "r_light": r_light, "Mw": Mw,
         "exposure": exposure, "casualties": exposure.get("casualties", 0.0),
+        "ring_densities": current_ring_densities,  # NEW
     }
 
     st.markdown("### Map")
@@ -726,31 +776,39 @@ with defend_tab:
     r1_base = scenario["r_light"]
     Mw_base = scenario["Mw"]
     casualties = scenario["casualties"]
+    ring_densities = scenario.get("ring_densities", DEFAULT_RING_DENSITY)
 
     # --- Deflection controls ---
     c1, c2, c3 = st.columns(3)
     with c1:
-        delta_v_mm_s = st.slider("Δv (mm/s)", 0.0, 5.0, 0.5, step=0.1)
+        delta_v_mm_s = st.slider("Δv (mm/s)", 0.0, 50.0, 1.0, step=0.5)
     with c2:
-        lead_days = st.slider("Lead time (days)", 0, 3650, 365, step=30)
+        lead_years = st.slider("Lead time (years)", 0.0, 50.0, 5.0, step=0.5)
     with c3:
         inbound_bearing = st.slider("Inbound bearing (°)", 0, 359, 90)
 
     # --- Compute new impact point ---
-    new_lat, new_lon, shift_km = apply_deflection(base_lat, base_lon, delta_v_mm_s, lead_days, inbound_bearing)
+    new_lat, new_lon, shift_km = apply_deflection(base_lat, base_lon, delta_v_mm_s, lead_years, inbound_bearing)
 
-    st.markdown(f"**Ground shift:** ~{shift_km:.1f} km (green = new impact, red = old impact)")
+    if new_lat is None:
+        st.success(f"✅ Deflection successful! The asteroid misses Earth by ~{abs(shift_km):,.0f} km at encounter.")
+        st.info("Try smaller Δv or shorter lead time to find the minimum nudge that still avoids impact.")
+        st.stop()
+    else:
+        st.warning(f"⚠️ Still on impact course. Ground shift ≈ {shift_km:.1f} km.")
 
     # --- Recompute outcome at new site (same asteroid physics) ---
     burst_alt_km = estimate_burst_altitude_km(velocity, strength_mpa, diameter_m, angle)
-    burst_alt_km = max(0.0, burst_alt_km - 6.0)
+    burst_alt_km = max(0.0, burst_alt_km)
     ground_fraction = ground_energy_fraction(burst_alt_km)
-
+    
     m = asteroid_mass_kg(diameter_m, density)
     E_j = kinetic_energy_joules(m, velocity)
     E_mt = tnt_megatons(E_j)
     E_ground_mt = E_mt * ground_fraction
     crater_m = final_crater_diameter_m(diameter_m, velocity, density, angle, burst_alt_km)
+    if ground_fraction < AIRBURST_THRESHOLD:
+        crater_m = 0.0
     crater_km = crater_m / 1000.0
 
     r12 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 12.0)
@@ -758,7 +816,7 @@ with defend_tab:
     r1 = blast_overpressure_radius_km(E_ground_mt, burst_alt_km, 1.0)
     Mw = seismic_moment_magnitude(E_j, ground_fraction=ground_fraction)
 
-    exposure = estimate_population_impacts(r12, r4, r1, ring_densities=current_ring_densities)
+    exposure = estimate_population_impacts(r12, r4, r1, ring_densities=ring_densities)
     new_casualties = exposure.get("casualties", 0.0)
     casualty_diff = new_casualties - casualties
 
@@ -847,31 +905,96 @@ with defend_tab:
     st.caption("Red = original impact | Green = deflected impact. Adjust Δv and lead time to see how even small pushes can change where — and how severely — an asteroid hits Earth.")
 
 with learn_tab:
-    st.subheader("Glossary & Teaching Aids")
+    st.header("🪐 Learn About Asteroids & Planetary Defense")
+
     st.markdown(
         """
-        **Asteroid** — A rocky object orbiting the Sun. Some get close to Earth and are called **NEOs** (Near-Earth Objects).
+        ### ☄️ What Are Asteroids?
+        Asteroids are rocky or metallic leftovers from the early Solar System — like **building blocks** that never formed a planet.
+        Most orbit safely between **Mars and Jupiter**, but some drift close to Earth.  
+        These are called **Near-Earth Objects (NEOs)**.
 
-        **Diameter** — How wide the asteroid is. Bigger usually means more energy on impact.
-
-        **Velocity** — How fast it's moving. Energy grows with the **square** of speed!
-
-        **Kinetic energy** — Energy of motion. We convert it to **megatons of TNT** to help compare sizes.
-
-        **Crater** — A bowl-shaped hole. Our estimate is simplified for learning.
-
-        **Deflection (Δv)** — A tiny push far in advance can move an asteroid enough to miss Earth.
-
-        **Why simplified?** — Real scientists use more complex models (airbursts, fragmentation, terrain, oceans).
-        Our goal is to **learn the ideas** first—then you can add advanced physics.
+        **Fun fact:** Scientists track over *35,000 NEOs*! NASA’s Planetary Defense Office keeps watch for us every day.
         """
     )
 
-    st.markdown("### Where to extend (hackathon tasks)")
-    st.markdown("- **USGS overlays:** add coastal elevation/tsunami hazard layers via tiled map sources.")
-    st.markdown("- **Population exposure:** add a layer with night lights or population to illustrate risk.")
-    st.markdown("- **Better crater/blast models:** swap in published scaling relations and atmosphere effects.")
-    st.markdown("- **Orbit view:** a 3D Three.js canvas for the Sun–Earth–asteroid geometry (or use Plotly 3D).")
+    st.divider()
+
+    st.markdown(
+        """
+        ### ⚙️ Key Terms
+
+        | Concept | What It Means | Why It Matters |
+        |:---------|:---------------|:----------------|
+        | **Diameter** | How wide the asteroid is (meters or kilometers). | Bigger asteroids carry **more mass** and release **more energy**. |
+        | **Velocity** | How fast it's moving (km/s). | Energy increases with the **square of speed** — doubling speed means **4×** the energy! |
+        | **Density (ρ)** | How heavy it is for its size. | Iron asteroids hit harder than icy ones. |
+        | **Kinetic Energy** | Energy of motion: ½ × m × v² | Used to estimate damage, expressed in **megatons of TNT**. |
+        | **Breakup Altitude** | Where it explodes in the air. | High breakup → airburst (like Chelyabinsk). Low breakup → crater (like Barringer). |
+        | **Crater** | The bowl left by an impact. | Its size tells us about the energy released. |
+        | **Deflection (Δv)** | A gentle nudge applied long before impact. | Even a few **millimeters per second** can make Earth miss the asteroid! |
+        """
+    )
+
+    st.info(
+        "💡 **Analogy:** Think of deflection like steering a car early — "
+        "a tiny turn far away can mean a huge difference down the road!"
+    )
+
+    st.divider()
+
+    st.markdown(
+        """
+        ### 🎓 For Students & Educators
+        - **Elementary (Ages 8–11):**  
+          Explore how size and speed change impact power. Ask: “What if it were as big as our school?”
+        - **Middle School (Ages 12–14):**  
+          Try graphing how **energy** changes with **velocity**. Notice it’s not linear!
+        - **High School (Ages 15–18):**  
+          Use the equations to estimate real events — *Chelyabinsk*, *Tunguska*, *Barringer*.  
+          Discuss mitigation: **kinetic impactors**, **gravity tractors**, **laser ablation**, or **nuclear options**.
+        """
+    )
+
+    st.markdown(
+        """
+        **Try it! 🔬**  
+        - Create your own asteroid in the **Explore** tab.  
+        - Use **Defend** to see how different Δv values change where it lands.  
+        - Challenge: find the smallest Δv that moves it safely off Earth!
+        """
+    )
+
+    st.divider()
+
+    st.markdown(
+        """
+        ### 🧠 Why Our Model Is Simplified
+        Real scientists include:
+        - **Fragmentation physics** — asteroids can break apart like gravel.
+        - **Atmospheric drag and ablation** — they lose mass and slow down.
+        - **Topography & oceans** — mountains and water change crater and tsunami effects.
+        - **Detailed scaling laws** — from NASA, USGS, and the *Earth Impact Effects Program*.
+
+        Our dashboard focuses on **concepts**, not perfect precision — just like a flight simulator teaches before you fly a real plane. ✈️
+        """
+    )
+
+    st.divider()
+
+    st.markdown(
+        """
+        ### 🛠️ Future Classroom Add-Ons (Hackathon Ideas)
+        - 🗺️ **USGS / NASA layers:** overlay coastlines, fault zones, or elevation for tsunami risk.
+        - 👥 **Population exposure:** visualize how many people live near the impact area.
+        - 🌡️ **Atmospheric effects:** add fireball brightness or shock-wave timing.
+        - ☀️ **3D orbit view:** show the asteroid’s path around the Sun using Plotly 3D or Three.js.
+        - 🎮 **Game mode:** give students missions — *“Save Earth with ≤ 1 mm/s Δv!”*
+        """
+    )
+
+    st.caption("Educational mode: simplified for learning. Data and models inspired by NASA, ESA, and academic impact simulations.")
+
 
 st.sidebar.title("About this MVP")
 st.sidebar.info(
