@@ -33,7 +33,22 @@
     "na": "n/a",
     "explore": "Explore",
     "defend_earth": "Defend Earth",
-    "learn_label": "Learn"
+    "learn_label": "Learn",
+    "show_confidence": "Show confidence levels",
+    "confidence_high_direct": "Confidence: ✅ High (direct calculation)",
+    "confidence_high_formula": "Confidence: ✅ High (formula-based)",
+    "confidence_medium_breakup": "Confidence: ⚠️ Medium (simplified atmospheric breakup model)",
+    "confidence_medium_fraction": "Confidence: ⚠️ Medium (approximate fraction)",
+    "confidence_medium_scaling": "Confidence: ⚠️ Medium (simple scaling law)",
+    "confidence_medium_low_blast": "Confidence: ⚠️ Medium-Low (blast scaling, order-of-magnitude only)",
+    "confidence_low_population": "Confidence: ⚠️ Low (coarse population overlay)",
+    "confidence_medium_seismic": "Confidence: ⚠️ Medium (energy-to-seismic conversion rough estimate)",
+    "map_legend": "**Map Legend:**\n- 🟡 **Yellow dot**: Impact point\n- ⚫ **Dark circle**: Crater ({crater_km} km diameter)\n- 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe} km radius)\n- 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod} km radius)\n- 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light} km radius)",
+    "damage_assessment_details": "Damage assessment details",
+    "probabilistic_scenarios": "Probabilistic scenarios",
+    "use_today_neos": "Use today's NASA NEOs as inputs",
+    "angle_caption": "10° = shallow (skips along), 90° = straight down",
+    "blast_overpressure_rings": "**Blast overpressure rings:**"
   },
   "expanders": {
     "white_paper_inputs": "White paper inputs from NASA/SBDB",
@@ -52,7 +67,16 @@
   },
   "learn": {
     "glossary_title": "Glossary & Teaching Aids",
-    "learn_text": "**Kinetic energy** — Energy of motion. We convert it to **megatons of TNT** to help compare sizes.\\n\\n**Crater** — A bowl-shaped hole. Our estimate is simplified for learning.\\n\\n**Deflection (Δv)** — A tiny push far in advance can move an asteroid enough to miss Earth.\\n\\n**Why simplified?** — Real scientists use more complex models (airbursts, fragmentation, terrain, oceans).\\nOur goal is to **learn the ideas** first—then you can add advanced physics."
+    "learn_text": "**Kinetic energy** — Energy of motion. We convert it to **megatons of TNT** to help compare sizes.\n\n**Crater** — A bowl-shaped hole. Our estimate is simplified for learning.\n\n**Deflection (Δv)** — A tiny push far in advance can move an asteroid enough to miss Earth.\n\n**Why simplified?** — Real scientists use more complex models (airbursts, fragmentation, terrain, oceans).\nOur goal is to **learn the ideas** first—then you can add advanced physics.",
+    "see_all_definitions": "📖 See all definitions",
+    "details": "Details",
+    "important_equations_title": "## Important equations",
+    "see_all_equations": "📖 See all equations",
+    "equations_title": "**Equation(s):**",
+    "equation_title": "**Equation:**",
+    "output_title": "**Output:** {output}",
+    "variables_title": "**Variables:**",
+    "reference": "**Reference:** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). Earth Impact Effects Program: A tool for calculating the regional environmental consequences of a meteoroid impact on Earth. *Icarus*. [https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
   },
   "app_extra": {
     "where_to_extend": "Where to extend (hackathon tasks)"
@@ -60,8 +84,28 @@
   "deflect": {
     "caption": "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point.",
     "delta_v_label": "Δv (mm/s)",
-    "lead_time_label": "Lead time (days)",
-    "bearing_label": "Inbound bearing (°)"
+    "lead_time_label": "Lead time (years)",
+    "bearing_label": "Inbound bearing (°)",
+    "no_scenario_warning": "⚠️ Please first create an asteroid scenario in the **Explore** tab.",
+    "success_message": "✅ Deflection successful! The asteroid misses Earth by ~{shift_km} km at encounter.",
+    "success_info": "Try smaller Δv or shorter lead time to find the minimum nudge that still avoids impact.",
+    "failure_message": "⚠️ Still on impact course. Ground shift ≈ {shift_km} km.",
+    "people_help_label": "People likely to need help (very rough)",
+    "before_after_title": "### 🌍 Before vs After Deflection",
+    "map_caption": "Red = original impact | Green = deflected impact. Adjust Δv and lead time to see how even small pushes can change where — and how severely — an asteroid hits Earth.",
+    "param_col": "Parameter",
+    "before_col": "Before (original)",
+    "after_col": "After (deflected)",
+    "param_impact_lat": "Impact latitude",
+    "param_impact_lon": "Impact longitude",
+    "param_breakup_alt": "Breakup altitude (km)",
+    "param_kinetic_energy": "Kinetic energy (Mt TNT)",
+    "param_ground_energy": "Ground-coupled energy (Mt TNT)",
+    "param_crater_diameter": "Crater diameter (km)",
+    "param_severe_radius": "Severe radius (12 psi, km)",
+    "param_moderate_radius": "Moderate radius (4 psi, km)",
+    "param_light_radius": "Light radius (1 psi, km)",
+    "param_seismic_magnitude": "Seismic magnitude (Mw)"
   },
   "neo": {
     "cols": {
@@ -87,6 +131,20 @@
     "abs_magnitude": "Abs magnitude (H)",
     "absolute_magnitude": "Absolute magnitude (H)"
   },
+  "cities": {
+    "choose_a_place": "— choose a place —",
+    "kaohsiung_city_taiwan": "Kaohsiung City, Taiwan",
+    "mulhouse_france": "Mulhouse, France",
+    "mexicali_mexico": "Mexicali, Mexico",
+    "quebec_city_canada": "Québec City, Canada",
+    "bangkok_thailand": "Bangkok, Thailand"
+  },
+  "materials": {
+    "carbonaceous_chondrite": "Carbonaceous chondrite",
+    "stony_chondrite": "Stony (ordinary chondrite)",
+    "iron_nickel": "Iron-nickel",
+    "cometary_icy": "Cometary (icy)"
+  },
   "metrics": {
     "whatif_preview": "What-if energy (preview)",
     "mass": "Mass",
@@ -100,7 +158,10 @@
     "population_exposed": "Population exposed",
     "estimated_casualties": "Estimated casualties",
     "seismic_mw": "Seismic Mw",
-    "probability_crater": "Probability of crater formation"
+    "probability_crater": "Probability of crater formation",
+    "damage_radius_4psi": "Damage radius (4-psi)",
+    "damage_area_full_circle": "Damage area (full circle)",
+    "population": "Population"
   },
   "meta": {
     "language_code": "en",

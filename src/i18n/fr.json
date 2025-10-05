@@ -1,8 +1,8 @@
 {
   "app": {
-    "title": "🛰️ Impactor-2025 : Apprendre et Simuler",
+    "title": "🛰️ Impactor-2025 : Apprendre et Simuler",
     "caption": "Un tableau de bord éducatif pour explorer les impacts d'astéroïdes, créé pour un hackathon.",
-    "where_hit": "Où ça frappe ? Choisissez une ville ou entrez des coordonnées.",
+    "where_hit": "Où ça frappe ? Choisissez une ville ou entrez des coordonnées.",
     "results": "Résultats",
     "run_sim_button": "Exécuter la simulation",
     "simulation_no_scenarios": "La simulation n'a retourné aucun scénario.",
@@ -11,29 +11,44 @@
     "choose_params": "Choisir les paramètres d'impact",
     "about_sidebar": "À propos de ce MVP",
     "key_outcome_quantiles": "Quantiles des résultats clés",
-    "adjust_strength_caption": "Adjust to emulate cohesive strength used in PAIR entry modeling.",
-    "map": "Map",
+    "adjust_strength_caption": "Ajustez pour émuler la résistance à la cohésion utilisée dans la modélisation d'entrée PAIR.",
+    "map": "Carte",
     "default_from_provenance": "Par défaut depuis {prov} : {dens} kg/m³",
     "preset_density_for": "Densité préréglée pour {material} : {dens} kg/m³",
     "population_estimates_note": "Les estimations de population reposent sur des anneaux de densité synthétiques documentés et reviennent à l'empreinte du cratère lorsque les anneaux d'explosion disparaissent ; remplacez par des jeux de données réels si disponibles.",
     "pair_sample_explain": "Échantillonnez des propriétés incertaines (diamètre, densité, angle, résistance) en utilisant l'approche Monte Carlo PAIR pour explorer les distributions de résultats.",
     "pair_note": "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Remplacez les distributions supposées par des priors spécifiques à la mission si nécessaire.",
     "sbdb_lookup_failed": "Échec de la recherche SBDB : {err}",
-    "geom_albedo": "Albédo geom.",
+    "geom_albedo": "Albédo géom.",
     "rotation_period_hr": "Période de rotation (hr)",
     "miss_distance_km": "Distance de passage (km)",
     "spectral_class": "Classe spectrale",
     "neo_selected_caption": "Sélectionné **{name}** — diamètre moyen ≈ {diameter} m, vitesse ≈ {speed} km/s, distance de passage ≈ {miss_km} km (~{moonx}× Lune).",
-    "deflection_title": "Try a deflection strategy ✨",
-    "neo_fetch_unavailable": "Could not fetch NEOs right now (API rate limit or offline). You can still use the simulator.",
-    "neo_pick_prompt": "Pick an asteroid to simulate (what-if it hit):",
-    "use_neo_button": "Use this NEO in the simulator",
-    "preview_caption": "Preview assumes current density/material selection.",
-    "airburst": "Airburst",
+    "deflection_title": "Essayez une stratégie de déviation ✨",
+    "neo_fetch_unavailable": "Impossible de récupérer les NEO pour le moment (limite de débit de l'API ou hors ligne). Vous pouvez toujours utiliser le simulateur.",
+    "neo_pick_prompt": "Choisissez un astéroïde à simuler (et s'il frappait?):",
+    "use_neo_button": "Utiliser ce NEO dans le simulateur",
+    "preview_caption": "L'aperçu suppose la sélection actuelle de densité/matériau.",
+    "airburst": "Explosion aérienne",
     "na": "n/a",
     "explore": "Explorer",
     "defend_earth": "Défendre la Terre",
-    "learn_label": "Apprendre"
+    "learn_label": "Apprendre",
+    "show_confidence": "Afficher les niveaux de confiance",
+    "confidence_high_direct": "Confiance : ✅ Élevée (calcul direct)",
+    "confidence_high_formula": "Confiance : ✅ Élevée (basé sur une formule)",
+    "confidence_medium_breakup": "Confiance : ⚠️ Moyenne (modèle de rupture atmosphérique simplifié)",
+    "confidence_medium_fraction": "Confiance : ⚠️ Moyenne (fraction approximative)",
+    "confidence_medium_scaling": "Confiance : ⚠️ Moyenne (loi de mise à l'échelle simple)",
+    "confidence_medium_low_blast": "Confiance : ⚠️ Moyenne-Faible (mise à l'échelle de l'explosion, ordre de grandeur uniquement)",
+    "confidence_low_population": "Confiance : ⚠️ Faible (superposition de population grossière)",
+    "confidence_medium_seismic": "Confiance : ⚠️ Moyenne (estimation approximative de la conversion d'énergie en sismique)",
+    "map_legend": "**Légende de la carte:**\n- 🟡 **Point jaune**: Point d'impact\n- ⚫ **Cercle sombre**: Cratère ({crater_km} km de diamètre)\n- 🔴 **Zone rouge foncé**: Surpression de 12 psi (dégâts graves, {r_severe} km de rayon)\n- 🔴 **Zone rouge**: Surpression de 4 psi (seuil de dégâts PAIR, {r_mod} km de rayon)\n- 🟠 **Zone orange**: Surpression de 1 psi (dégâts légers, {r_light} km de rayon)",
+    "damage_assessment_details": "Détails de l'évaluation des dégâts",
+    "probabilistic_scenarios": "Scénarios probabilistes",
+    "use_today_neos": "Utiliser les NEO d'aujourd'hui de la NASA comme entrées",
+    "angle_caption": "10° = peu profond (ricoche), 90° = tout droit vers le bas",
+    "blast_overpressure_rings": "**Anneaux de surpression de l'explosion :**"
   },
   "expanders": {
     "white_paper_inputs": "Entrées du white paper depuis la NASA/SBDB",
@@ -52,27 +67,43 @@
   },
   "learn": {
     "glossary_title": "Glossaire et ressources pédagogiques",
-    "learn_text": "**Énergie cinétique** — Énergie du mouvement. Nous la convertissons en **mégatonnes de TNT** pour aider à comparer les tailles.\n\n**Cratère** — Un trou en forme de bol. Notre estimation est simplifiée pour l'apprentissage.\n\n**Déflexion (Δv)** — Une petite poussée bien à l'avance peut déplacer un astéroïde suffisamment pour éviter la Terre.\n\n**Pourquoi simplifié ?** — Les scientifiques utilisent des modèles plus complexes (explosions aériennes, fragmentation, terrain, océans).\nNotre objectif est d'**apprendre les idées** d'abord — puis vous pouvez ajouter une physique avancée."
+    "learn_text": "**Énergie cinétique** — Énergie du mouvement. Nous la convertissons en **mégatonnes de TNT** pour aider à comparer les tailles.\n\n**Cratère** — Un trou en forme de bol. Notre estimation est simplifiée pour l'apprentissage.\n\n**Déflexion (Δv)** — Une petite poussée bien à l'avance peut déplacer un astéroïde suffisamment pour éviter la Terre.\n\n**Pourquoi simplifié ?** — Les scientifiques utilisent des modèles plus complexes (explosions aériennes, fragmentation, terrain, océans).\nNotre objectif est d'**apprendre les idées** d'abord — puis vous pouvez ajouter une physique avancée.",
+    "see_all_definitions": "📖 Voir toutes les définitions",
+    "details": "Détails",
+    "important_equations_title": "## Équations importantes",
+    "see_all_equations": "📖 Voir toutes les équations",
+    "equations_title": "**Équation(s):**",
+    "equation_title": "**Équation:**",
+    "output_title": "**Sortie :** {output}",
+    "variables_title": "**Variables:**",
+    "reference": "**Référence :** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). Earth Impact Effects Program: A tool for calculating the regional environmental consequences of a meteoroid impact on Earth. *Icarus*. [https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
   },
   "app_extra": {
     "where_to_extend": "Où étendre (tâches hackathon)"
   },
   "deflect": {
-    "caption": "Deflection visualization preserves the same damage model; connect to spatial datasets to recalculate exposure for the shifted impact point.",
+    "caption": "La visualisation de la déviation conserve le même modèle de dommages ; connectez-vous à des ensembles de données spatiales pour recalculer l'exposition pour le point d'impact décalé.",
     "delta_v_label": "Δv (mm/s)",
-    "lead_time_label": "Lead time (days)",
-    "bearing_label": "Inbound bearing (°)"
+    "lead_time_label": "Temps d'anticipation (années)",
+    "bearing_label": "Relèvement d'arrivée (°)",
+    "no_scenario_warning": "⚠️ Veuillez d'abord créer un scénario d'astéroïde dans l'onglet **Explorer**.",
+    "success_message": "✅ Déviation réussie ! L'astéroïde manque la Terre de ~{shift_km} km lors de la rencontre.",
+    "success_info": "Essayez un Δv plus petit ou un temps d'anticipation plus court pour trouver la poussée minimale qui évite encore l'impact.",
+    "failure_message": "⚠️ Toujours en trajectoire d'impact. Décalage au sol ≈ {shift_km} km.",
+    "people_help_label": "Personnes susceptibles d'avoir besoin d'aide (très approximatif)",
+    "before_after_title": "### 🌍 Avant et après la déviation",
+    "map_caption": "Rouge = impact original | Vert = impact dévié. Ajustez le Δv et le temps d'anticipation pour voir comment même de petites poussées peuvent changer où et avec quelle gravité un astéroïde frappe la Terre."
   },
   "neo": {
     "cols": {
-      "diameter_avg_m": "diameter_avg_m (m)",
-      "miss_distance_km": "miss distance (km)",
-      "miss_distance_moon_x": "miss distance (× Moon)"
+      "diameter_avg_m": "diamètre_moy_m (m)",
+      "miss_distance_km": "distance_manquée (km)",
+      "miss_distance_moon_x": "distance_manquée (× Lune)"
     }
   },
   "labels": {
     "diameter": "Diamètre de l'astéroïde (m)",
-    "velocity": "Vélocité à l'impact (km/s)",
+    "velocity": "Vitesse d'impact (km/s)",
     "angle": "Angle d'impact (°)",
     "material": "Préréglage de matériau",
     "density": "Densité (kg/m³)",
@@ -83,12 +114,26 @@
     "abs_magnitude": "Magnitude absolue (H)",
     "absolute_magnitude": "Magnitude absolue (H)"
   },
+  "cities": {
+    "choose_a_place": "— choisissez un lieu —",
+    "kaohsiung_city_taiwan": "Kaohsiung, Taïwan",
+    "mulhouse_france": "Mulhouse, France",
+    "mexicali_mexico": "Mexicali, Mexique",
+    "quebec_city_canada": "Ville de Québec, Canada",
+    "bangkok_thailand": "Bangkok, Thaïlande"
+  },
+  "materials": {
+    "carbonaceous_chondrite": "Chondrite carbonée",
+    "stony_chondrite": "Pierreux (chondrite ordinaire)",
+    "iron_nickel": "Fer-nickel",
+    "cometary_icy": "Cométaire (glacé)"
+  },
   "snapshot": {
-    "impact_lat_used": "Impact latitude (used)",
-    "impact_lon_used": "Impact longitude (used)"
+    "impact_lat_used": "Latitude de l'impact (utilisée)",
+    "impact_lon_used": "Longitude de l'impact (utilisée)"
   },
   "metrics": {
-    "whatif_preview": "What-if energy (preview)",
+    "whatif_preview": "Énergie hypothétique (aperçu)",
     "mass": "Masse",
     "energy": "Énergie cinétique",
     "breakup_alt": "Altitude de désintégration",
@@ -100,7 +145,10 @@
     "population_exposed": "Population exposée",
     "estimated_casualties": "Estimations de victimes",
     "seismic_mw": "Moment sismique Mw",
-    "probability_crater": "Probabilité de formation d'un cratère"
+    "probability_crater": "Probabilité de formation d'un cratère",
+    "damage_radius_4psi": "Rayon des dommages (4-psi)",
+    "damage_area_full_circle": "Zone de dommages (cercle complet)",
+    "population": "Population"
   },
   "meta": {
     "language_code": "fr",
