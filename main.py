@@ -1700,5 +1700,6 @@ with learn_tab:
         "**Reference:** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). "
         "Earth Impact Effects Program: A tool for calculating the regional environmental consequences "
         "of a meteoroid impact on Earth. *Icarus*. "
-        "[https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
+        "[https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)" \
+        "https://v0.app/templates/shader-gradient-component-cAawT1AJaki"
     )
