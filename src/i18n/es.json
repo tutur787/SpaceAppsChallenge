@@ -33,7 +33,22 @@
     "na": "n/a",
     "explore": "Explorar",
     "defend_earth": "Defender la Tierra",
-    "learn_label": "Aprender"
+    "learn_label": "Aprender",
+    "show_confidence": "Mostrar niveles de confianza",
+    "confidence_high_direct": "Confianza: ✅ Alta (cálculo directo)",
+    "confidence_high_formula": "Confianza: ✅ Alta (basado en fórmula)",
+    "confidence_medium_breakup": "Confianza: ⚠️ Media (modelo de ruptura atmosférica simplificado)",
+    "confidence_medium_fraction": "Confianza: ⚠️ Media (fracción aproximada)",
+    "confidence_medium_scaling": "Confianza: ⚠️ Media (ley de escala simple)",
+    "confidence_medium_low_blast": "Confianza: ⚠️ Media-Baja (escala de explosión, solo orden de magnitud)",
+    "confidence_low_population": "Confianza: ⚠️ Baja (superposición de población gruesa)",
+    "confidence_medium_seismic": "Confianza: ⚠️ Media (estimación aproximada de conversión de energía a sísmica)",
+    "map_legend": "**Leyenda del mapa:**\n- 🟡 **Punto amarillo**: Punto de impacto\n- ⚫ **Círculo oscuro**: Cráter ({crater_km} km de diámetro)\n- 🔴 **Zona roja oscura**: Sobrepresión de 12 psi (daño severo, {r_severe} km de radio)\n- 🔴 **Zona roja**: Sobrepresión de 4 psi (umbral de daño PAIR, {r_mod} km de radio)\n- 🟠 **Zona naranja**: Sobrepresión de 1 psi (daño ligero, {r_light} km de radio)",
+    "damage_assessment_details": "Detalles de la evaluación de daños",
+    "probabilistic_scenarios": "Escenarios probabilísticos",
+    "use_today_neos": "Usar los NEO de hoy de la NASA como entradas",
+    "angle_caption": "10° = superficial (rebota), 90° = directo hacia abajo",
+    "blast_overpressure_rings": "**Anillos de sobrepresión de explosión:**"
   },
   "expanders": {
     "white_paper_inputs": "Entradas del white paper desde NASA/SBDB",
@@ -52,7 +67,16 @@
   },
   "learn": {
     "glossary_title": "Glosario y recursos didácticos",
-    "learn_text": "**Energía cinética** — Energía del movimiento. La convertimos a **megatoneladas de TNT** para facilitar la comparación.\n\n**Cráter** — Un hueco en forma de cuenco. Nuestra estimación está simplificada para aprendizaje.\n\n**Deflexión (Δv)** — Un pequeño empujón con mucha anticipación puede mover un asteroide lo suficiente como para evitar la Tierra.\n\n**¿Por qué simplificado?** — Los científicos usan modelos más complejos (estallidos en aire, fragmentación, terreno, océanos).\nNuestro objetivo es **aprender las ideas** primero — luego puedes añadir física avanzada."
+    "learn_text": "**Energía cinética** — Energía del movimiento. La convertimos a **megatoneladas de TNT** para facilitar la comparación.\n\n**Cráter** — Un hueco en forma de cuenco. Nuestra estimación está simplificada para aprendizaje.\n\n**Deflexión (Δv)** — Un pequeño empujón con mucha anticipación puede mover un asteroide lo suficiente como para evitar la Tierra.\n\n**¿Por qué simplificado?** — Los científicos usan modelos más complejos (estallidos en aire, fragmentación, terreno, océanos).\nNuestro objetivo es **aprender las ideas** primero — luego puedes añadir física avanzada.",
+    "see_all_definitions": "📖 Ver todas las definiciones",
+    "details": "Detalles",
+    "important_equations_title": "## Ecuaciones importantes",
+    "see_all_equations": "📖 Ver todas las ecuaciones",
+    "equations_title": "**Ecuación(es):**",
+    "equation_title": "**Ecuación:**",
+    "output_title": "**Salida:** {output}",
+    "variables_title": "**Variables:**",
+    "reference": "**Referencia:** Collins, G. S., Melosh, H. J., & Marcus, R. A. (2017). Earth Impact Effects Program: A tool for calculating the regional environmental consequences of a meteoroid impact on Earth. *Icarus*. [https://www.sciencedirect.com/science/article/pii/S0019103516307126](https://www.sciencedirect.com/science/article/pii/S0019103516307126)"
   },
   "app_extra": {
     "where_to_extend": "Dónde ampliar (tareas del hackathon)"
@@ -60,8 +84,15 @@
   "deflect": {
     "caption": "La visualización de desvío conserva el mismo modelo de daños; conéctala a datos espaciales para recalcular la exposición del nuevo punto de impacto.",
     "delta_v_label": "Δv (mm/s)",
-    "lead_time_label": "Tiempo de anticipación (días)",
-    "bearing_label": "Rumbo de llegada (°)"
+    "lead_time_label": "Tiempo de anticipación (años)",
+    "bearing_label": "Rumbo de llegada (°)",
+    "no_scenario_warning": "⚠️ Por favor, primero cree un escenario de asteroide en la pestaña **Explorar**.",
+    "success_message": "✅ ¡Desvío exitoso! El asteroide evita la Tierra por ~{shift_km} km en el encuentro.",
+    "success_info": "Intente con un Δv más pequeño o un tiempo de anticipación más corto para encontrar el empujón mínimo que aún evita el impacto.",
+    "failure_message": "⚠️ Sigue en curso de impacto. Desplazamiento en tierra ≈ {shift_km} km.",
+    "people_help_label": "Personas que probablemente necesiten ayuda (muy aproximado)",
+    "before_after_title": "### 🌍 Antes y después del desvío",
+    "map_caption": "Rojo = impacto original | Verde = impacto desviado. Ajuste el Δv y el tiempo de anticipación para ver cómo incluso pequeños empujones pueden cambiar dónde y con qué severidad un asteroide golpea la Tierra."
   },
   "neo": {
     "cols": {
@@ -72,7 +103,7 @@
   },
   "labels": {
     "diameter": "Diámetro del asteroide (m)",
-    "velocity": "Velocidad al impactar (km/s)",
+    "velocity": "Velocidad de impacto (km/s)",
     "angle": "Ángulo de impacto (°)",
     "material": "Material",
     "density": "Densidad (kg/m³)",
@@ -82,6 +113,20 @@
     "monte_carlo": "Número de muestras Monte Carlo",
     "abs_magnitude": "Magnitud absoluta (H)",
     "absolute_magnitude": "Magnitud absoluta (H)"
+  },
+  "cities": {
+    "choose_a_place": "— elija un lugar —",
+    "kaohsiung_city_taiwan": "Kaohsiung, Taiwán",
+    "mulhouse_france": "Mulhouse, Francia",
+    "mexicali_mexico": "Mexicali, México",
+    "quebec_city_canada": "Ciudad de Québec, Canadá",
+    "bangkok_thailand": "Bangkok, Tailandia"
+  },
+  "materials": {
+    "carbonaceous_chondrite": "Condrita carbonácea",
+    "stony_chondrite": "Pétrea (condrita ordinaria)",
+    "iron_nickel": "Hierro-níquel",
+    "cometary_icy": "Cometario (helado)"
   },
   "snapshot": {
     "impact_lat_used": "Latitud de impacto (usada)",
@@ -100,7 +145,10 @@
     "population_exposed": "Población expuesta",
     "estimated_casualties": "Bajas estimadas",
     "seismic_mw": "Momento sísmico Mw",
-    "probability_crater": "Probabilidad de formación de cráter"
+    "probability_crater": "Probabilidad de formación de cráter",
+    "damage_radius_4psi": "Radio de daño (4-psi)",
+    "damage_area_full_circle": "Área de daño (círculo completo)",
+    "population": "Población"
   },
   "meta": {
     "language_code": "es",

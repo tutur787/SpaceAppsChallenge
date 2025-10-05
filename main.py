@@ -710,7 +710,7 @@ def fetch_today_neos() -> pd.DataFrame:
 # ----------------------------
 # UI
 # ----------------------------
-st.set_page_config(page_title="Impactor-2025: Learn & Simulate", layout="wide")
+st.set_page_config(page_title=t("app.title"), layout="wide")
 
 # Render Next.js background
 render_nextjs_background()
@@ -730,7 +730,7 @@ if "lang" not in st.session_state:
         set_lang("en")
         st.session_state["lang"] = "en"
 
-st.title("🛰️ Impactor-2025: Learn & Simulate")
+st.title(t("app.title"))
 
 # Initialize session defaults
 ensure_session_defaults()
@@ -804,7 +804,7 @@ with exp_tab:
 
         diameter_default = int(st.session_state.get("diameter_m", 150))
         diameter_m = st.slider(
-            "Asteroid diameter (m)",
+            t("labels.diameter"),
             min_value=10,
             max_value=2000,
             value=diameter_default,
@@ -814,7 +814,7 @@ with exp_tab:
 
         velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
         velocity = st.slider(
-            "Velocity at impact (km/s)",
+            t("labels.velocity"),
             min_value=5.0,
             max_value=70.0,
             value=velocity_default,
@@ -824,22 +824,22 @@ with exp_tab:
 
         angle_default = int(st.session_state.get("angle_deg", 45))
         angle = st.slider(
-            "Impact angle (°)",
+            t("labels.angle"),
             min_value=10,
             max_value=90,
             value=angle_default,
             step=1,
             key="angle_deg",
         )
-        st.caption("10° = shallow (skips along), 90° = straight down")
+        st.caption(t("app.angle_caption"))
 
         material_options = list(MATERIAL_PRESETS.keys())
-        default_material = st.session_state.get(
+        default_material_key = st.session_state.get(
             "material_preset",
             defaults_meta.get("material", material_options[1])
         )
         try:
-            material_index = material_options.index(default_material)
+            material_index = material_options.index(default_material_key)
         except ValueError:
             material_index = 1
         material = st.selectbox(
@@ -847,6 +847,7 @@ with exp_tab:
             material_options,
             index=material_index,
             key="material_preset",
+            format_func=lambda key: t(f"materials.{key}", default=key),
         )
 
         preset_density = MATERIAL_PRESETS[material]["density"]
@@ -871,7 +872,12 @@ with exp_tab:
         )
 
         st.markdown("**" + t("app.where_hit") + "**")
-        preset = st.selectbox(t("app.city_preset"), list(CITY_PRESETS.keys()), key="city_preset")
+        preset = st.selectbox(
+            t("app.city_preset"), 
+            list(CITY_PRESETS.keys()), 
+            key="city_preset",
+            format_func=lambda key: t(f"cities.{key}", default=key)
+        )
         if preset and CITY_PRESETS[preset][0] is not None:
             lat, lon = CITY_PRESETS[preset]
         else:
@@ -929,28 +935,28 @@ with exp_tab:
     pair_affected_population_4psi = pair_damage_area_km2 * pair_density
 
     st.markdown("### " + t("app.results"))
-    show_confidence = st.checkbox("Show confidence levels", value=False)
+    show_confidence = st.checkbox(t("app.show_confidence"), value=False)
 
     core_cols = st.columns(4)
     with core_cols[0]:
         st.metric(t("metrics.mass"), f"{m:,.0f} kg")
         if show_confidence:
-            st.caption("Confidence: ✅ High (direct calculation)")
+            st.caption(t("app.confidence_high_direct"))
 
     with core_cols[1]:
         st.metric(t("metrics.energy"), f"{E_mt:,.2f} Mt TNT")
         if show_confidence:
-            st.caption("Confidence: ✅ High (formula-based)")
+            st.caption(t("app.confidence_high_formula"))
 
     with core_cols[2]:
         st.metric(t("metrics.breakup_alt"), f"{breakup_alt_km:.1f} km")
         if show_confidence:
-            st.caption("Confidence: ⚠️ Medium (simplified atmospheric breakup model)")
+            st.caption(t("app.confidence_medium_breakup"))
 
     with core_cols[3]:
         st.metric(t("metrics.ground_energy"), f"{E_mt * ground_fraction:.2f} Mt")
         if show_confidence:
-            st.caption("Confidence: ⚠️ Medium (approximate fraction)")
+            st.caption(t("app.confidence_medium_fraction"))
 
     crater_display = f"{crater_km:.2f} km" if crater_km > 0.0 else t("app.airburst")
 
@@ -1117,14 +1123,7 @@ with exp_tab:
 
     st.pydeck_chart(deck)
 
-    st.markdown("""
-    **Map Legend:**
-    - 🟡 **Yellow dot**: Impact point
-    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
-    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
-    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
-    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
-    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
+    st.markdown(t("app.map_legend", crater_km=f"{crater_km:.2f}", r_severe=f"{r_severe:.1f}", r_mod=f"{r_mod:.1f}", r_light=f"{r_light:.1f}"))
 
     with st.expander("Damage assessment details"):
         pair_damage_radius_km = r_mod
