@@ -56,6 +56,9 @@ SEA_LEVEL_DENSITY = 1.225  # kg/m^3
 SCALE_HEIGHT_KM = 7.16  # exponential atmosphere scale height
 DEFAULT_SEISMIC_COUPLING = 3e-4  # fraction of kinetic energy converted to seismic energy
 
+# Minimum ground-coupled energy fraction to consider a surface crater (educational heuristics)
+AIRBURST_THRESHOLD = 0.05
+
 # Synthetic fallback population density (people per square km) used when no live data layer is loaded.
 # Documented in data_sources.md for transparency.
 SYNTHETIC_POP_DENSITY = {
