@@ -55,6 +55,10 @@ SYNTHETIC_POP_DENSITY = {
     "light": 800,
 }
 
+# NOTE: These casualty rates are NOT from the PAIR white paper.
+# Mathias et al. (2017) uses "affected population" (everyone within 4-psi damage radius)
+# without modeling specific casualty rates. These rates are kept for legacy/educational purposes
+# but should NOT be used in PAIR-compliant calculations.
 SYNTHETIC_CASUALTY_RATE = {
     "severe": 0.35,
     "moderate": 0.1,
@@ -407,37 +411,34 @@ with exp_tab:
     primary_cols = st.columns(4)
     with primary_cols[0]:
         diameter_default = int(st.session_state.get("diameter_m", 150))
-        diameter_kwargs = {
-            "min_value": 10,
-            "max_value": 2000,
-            "step": 10,
-            "key": "diameter_m",
-        }
-        if "diameter_m" not in st.session_state:
-            diameter_kwargs["value"] = diameter_default
-        diameter_m = st.slider("Asteroid diameter (m)", **diameter_kwargs)
+        diameter_m = st.slider(
+            "Asteroid diameter (m)",
+            min_value=10,
+            max_value=2000,
+            value=diameter_default,
+            step=10,
+            key="diameter_m",
+        )
     with primary_cols[1]:
         velocity_default = float(st.session_state.get("velocity_km_s", 18.0))
-        velocity_kwargs = {
-            "min_value": 5.0,
-            "max_value": 70.0,
-            "step": 0.5,
-            "key": "velocity_km_s",
-        }
-        if "velocity_km_s" not in st.session_state:
-            velocity_kwargs["value"] = velocity_default
-        velocity = st.slider("Velocity at impact (km/s)", **velocity_kwargs)
+        velocity = st.slider(
+            "Velocity at impact (km/s)",
+            min_value=5.0,
+            max_value=70.0,
+            value=velocity_default,
+            step=0.5,
+            key="velocity_km_s",
+        )
     with primary_cols[2]:
         angle_default = int(st.session_state.get("angle_deg", 45))
-        angle_kwargs = {
-            "min_value": 10,
-            "max_value": 90,
-            "step": 1,
-            "key": "angle_deg",
-        }
-        if "angle_deg" not in st.session_state:
-            angle_kwargs["value"] = angle_default
-        angle = st.slider("Impact angle (°)", **angle_kwargs)
+        angle = st.slider(
+            "Impact angle (°)",
+            min_value=10,
+            max_value=90,
+            value=angle_default,
+            step=1,
+            key="angle_deg",
+        )
     with primary_cols[3]:
         material = st.selectbox("Material preset", list(MATERIAL_PRESETS.keys()), index=1)
 
@@ -526,28 +527,62 @@ with exp_tab:
     cols2[3].metric("Light radius (1 psi)", f"{r_light:.2f} km")
 
     cols3 = st.columns(3)
-    cols3[0].metric("Population exposed", f"{exposure.get('total', 0.0):,.0f}")
-    cols3[1].metric("Estimated casualties", f"{exposure.get('casualties', 0.0):,.0f}")
+    # PAIR uses 4-psi damage radius as the primary metric (white paper Section 2.3, line 236)
+    # 4-psi is a full circle, not a ring, so we need to calculate the total area within r_mod
+    pair_damage_area_km2 = math.pi * max(r_mod, 0.0) ** 2
+    # Use the city/fallback density for the 4-psi region
+    if preset in CITY_RING_DENSITY:
+        pair_density = CITY_RING_DENSITY[preset].get("moderate", DEFAULT_RING_DENSITY["moderate"])
+    else:
+        pair_density = DEFAULT_RING_DENSITY["moderate"]
+    pair_affected_population_4psi = pair_damage_area_km2 * pair_density
+
+    cols3[0].metric("PAIR affected population (≤4-psi)", f"{pair_affected_population_4psi:,.0f}")
+    cols3[1].metric("Total exposed (all rings)", f"{exposure.get('total', 0.0):,.0f}")
     cols3[2].metric("Seismic Mw", f"{Mw:.1f}" if Mw is not None else "n/a")
 
     st.caption(
-        "Population estimates rely on documented synthetic density rings and fall back to the crater footprint when blast rings vanish; replace with real datasets when available."
+        "**PAIR methodology:** 'Affected population' = everyone within 4-psi damage radius (no casualty rate modeling). "
+        "Population densities use synthetic values (city presets or fallback). "
+        "Production should integrate SEDAC gridded census data (Mathias et al. 2017, Section 2.5)."
     )
 
-    with st.expander("Synthetic exposure breakdown"):
+    with st.expander("PAIR damage assessment (Mathias et al. 2017)"):
+        st.markdown("""
+        **Methodology from white paper (Section 2.3-2.5):**
+        - Primary damage threshold: **4-psi blast overpressure** (standard for structural damage)
+        - Population counted within damage radius using gridded census data
+        - "Affected population" = everyone within damage area (not a modeled casualty rate)
+        """)
+
+        # PAIR uses 4-psi as the primary damage threshold (full circle, not a ring)
+        pair_damage_radius_km = r_mod  # 4-psi radius
+        pair_damage_area_km2 = math.pi * max(pair_damage_radius_km, 0.0) ** 2
+        # Population = full area within 4-psi × density
+        pair_affected_pop = pair_damage_area_km2 * pair_density
+
+        st.metric("Damage radius (4-psi)", f"{pair_damage_radius_km:.2f} km")
+        st.metric("Damage area (full circle)", f"{pair_damage_area_km2:,.1f} km²")
+        st.metric("Affected population", f"{pair_affected_pop:,.0f} people")
+
+        st.caption(
+            "⚠️ 'Affected' does not equal casualties. Actual harm depends on building codes, "
+            "warning time, shelter availability, and local infrastructure."
+        )
+
+        # Show all three rings for reference/visualization
+        st.markdown("**Blast overpressure rings (for visualization):**")
         exposure_rows = []
-        for ring, radius in [("severe", r_severe), ("moderate", r_mod), ("light", r_light)]:
+        for ring, radius, psi in [("severe", r_severe, 12), ("moderate", r_mod, 4), ("light", r_light, 1)]:
             area = math.pi * max(radius, 0.0) ** 2
             pop = exposure.get(ring, 0.0)
-            rate = SYNTHETIC_CASUALTY_RATE.get(ring, 0.0)
             exposure_rows.append(
                 {
                     "ring": ring,
+                    "overpressure_psi": psi,
                     "radius_km": radius,
                     "area_km2": area,
                     "population": pop,
-                    "casualty_rate": rate,
-                    "expected_casualties": pop * rate,
                 }
             )
         st.dataframe(pd.DataFrame(exposure_rows))
@@ -582,36 +617,52 @@ with exp_tab:
                     "PAIR = Probabilistic Asteroid Impact Risk (Mathias et al., 2017). Replace assumed distributions with mission-specific priors as data become available."
                 )
 
-    # Map visualization with concentric circles
-    st.markdown("### Map")
+    # Map visualization with crater and blast damage zones
+    st.markdown("### Impact Visualization Map")
+    st.caption(f"📍 **Impact location:** {preset if preset != '— choose a place —' else f'{lat:.4f}, {lon:.4f}'}")
+
     view_state = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, bearing=0, pitch=30)
 
-    def circle_layer(radius_km, color, opacity=100):
+    def circle_layer(radius_km, color, name=""):
         return pdk.Layer(
             "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [name]}),
             get_position="[lon, lat]",
             get_radius=radius_km * 1000,
             radius_min_pixels=1,
             radius_max_pixels=10000,
             get_fill_color=color,
-            pickable=False,
+            pickable=True,
             stroked=False,
             filled=True,
         )
 
     rings = [
-        circle_layer(r_light, [255, 165, 0, 60]),
-        circle_layer(r_mod, [255, 0, 0, 80]),
-        circle_layer(r_severe, [139, 0, 0, 120]),
+        # Blast damage zones (from outer to inner)
+        circle_layer(r_light, [255, 165, 0, 60], f"1-psi zone: {r_light:.1f} km"),
+        circle_layer(r_mod, [255, 0, 0, 80], f"4-psi zone (PAIR): {r_mod:.1f} km"),
+        circle_layer(r_severe, [139, 0, 0, 120], f"12-psi zone: {r_severe:.1f} km"),
+        # Crater
         pdk.Layer(
             "ScatterplotLayer",
-            data=pd.DataFrame({"lat": [lat], "lon": [lon]}),
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": [f"Crater: {crater_km:.2f} km diameter"]}),
             get_position="[lon, lat]",
-            get_radius=5000,
-            get_fill_color=[0, 0, 0, 180],
-            get_line_color=[255, 255, 255, 220],
-            line_width_min_pixels=1,
+            get_radius=crater_km * 500,  # crater radius in meters
+            get_fill_color=[50, 50, 50, 220],
+            get_line_color=[255, 255, 255, 255],
+            line_width_min_pixels=2,
+            pickable=True,
+        ),
+        # Impact point marker
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=pd.DataFrame({"lat": [lat], "lon": [lon], "name": ["Impact Point"]}),
+            get_position="[lon, lat]",
+            get_radius=1000,
+            get_fill_color=[255, 255, 0, 255],
+            get_line_color=[255, 0, 0, 255],
+            line_width_min_pixels=2,
+            pickable=True,
         ),
     ]
 
@@ -627,6 +678,16 @@ with exp_tab:
         deck = pdk.Deck(initial_view_state=view_state, layers=[basemap, *rings], map_style=None)
 
     st.pydeck_chart(deck)
+
+    # Map legend
+    st.markdown("""
+    **Map Legend:**
+    - 🟡 **Yellow dot**: Impact point
+    - ⚫ **Dark circle**: Crater ({crater_km:.2f} km diameter)
+    - 🔴 **Dark red zone**: 12-psi overpressure (severe damage, {r_severe:.1f} km radius)
+    - 🔴 **Red zone**: 4-psi overpressure (PAIR damage threshold, {r_mod:.1f} km radius)
+    - 🟠 **Orange zone**: 1-psi overpressure (light damage, {r_light:.1f} km radius)
+    """.format(crater_km=crater_km, r_severe=r_severe, r_mod=r_mod, r_light=r_light))
 
     # --- PATCH 2: make NEOs usable + educational summaries ---
     with st.expander("Use today's NASA NEOs as inputs"):
@@ -649,41 +710,45 @@ with exp_tab:
             }))
 
             # Pick one and push into the simulator
+            neo_options = ["— use custom values —"] + df["name"].tolist()
             choice = st.selectbox(
                 "Pick an asteroid to simulate (what-if it hit):",
-                options=df["name"].tolist()
-            )
-            row = df.loc[df["name"] == choice].iloc[0]
-
-            st.caption(
-                f"Selected **{row['name']}** — avg diameter ≈ {row['diameter_avg_m']:.1f} m, "
-                f"speed ≈ {row['velocity_km_s']:.2f} km/s, "
-                f"miss distance ≈ {row['miss_distance_km']:.0f} km (~{row['miss_distance_moon_x']:.1f}× Moon)."
+                options=neo_options,
+                key="neo_choice"
             )
 
-            colA, colB = st.columns(2)
-            with colA:
-                if st.button("Use this NEO in the simulator"):
-                    diameter_value = row["diameter_avg_m"]
-                    if diameter_value is None or pd.isna(diameter_value):
-                        diameter_value = st.session_state["diameter_m"]
-                    diameter_value = int(np.clip(diameter_value, 10, 2000))
+            if choice != "— use custom values —":
+                row = df.loc[df["name"] == choice].iloc[0]
 
-                    velocity_value = row["velocity_km_s"]
-                    if velocity_value is None or pd.isna(velocity_value):
-                        velocity_value = st.session_state["velocity_km_s"]
-                    velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
+                st.caption(
+                    f"Selected **{row['name']}** — avg diameter ≈ {row['diameter_avg_m']:.1f} m, "
+                    f"speed ≈ {row['velocity_km_s']:.2f} km/s, "
+                    f"miss distance ≈ {row['miss_distance_km']:.0f} km (~{row['miss_distance_moon_x']:.1f}× Moon)."
+                )
 
+                # Automatically update sliders when selection changes
+                diameter_value = row["diameter_avg_m"]
+                if diameter_value is None or pd.isna(diameter_value):
+                    diameter_value = st.session_state.get("diameter_m", 150)
+                diameter_value = int(np.clip(diameter_value, 10, 2000))
+
+                velocity_value = row["velocity_km_s"]
+                if velocity_value is None or pd.isna(velocity_value):
+                    velocity_value = st.session_state.get("velocity_km_s", 18.0)
+                velocity_value = float(np.clip(velocity_value, 5.0, 70.0))
+
+                # Check if values need updating
+                if (st.session_state.get("diameter_m") != diameter_value or
+                    st.session_state.get("velocity_km_s") != velocity_value):
                     override_values = {
                         "diameter_m": diameter_value,
                         "velocity_km_s": velocity_value,
-                        # Reset to a representative entry angle for clarity when swapping asteroids
                         "angle_deg": 45,
                     }
                     st.session_state["widget_overrides"] = override_values
                     st.rerun()
-            with colB:
-                # A quick educational “scale” card
+
+                # Preview metric
                 mass = asteroid_mass_kg(row["diameter_avg_m"], density)
                 E_mt_preview = tnt_megatons(kinetic_energy_joules(mass, row["velocity_km_s"]))
                 st.metric("What-if energy (preview)", f"{E_mt_preview:,.2f} Mt TNT")
